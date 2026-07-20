@@ -24,7 +24,12 @@ import TreasurerDashboard from "@/pages/treasurer/Dashboard";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/Dashboard";
-
+import TenantManagement from '@/pages/admin/TenantManagement/TenantManagement';
+import TenantReconciliation from '@/pages/admin/TenantReconciliation/TenantReconciliation';
+import AuditLogs from '@/pages/admin/AuditLogs/AuditLogs';
+import UserManagement from '@/pages/admin/UserManagement/UserManagement';
+import AdminSettings from '@/pages/admin/AdminSettings/AdminSettings';
+import AdminAnalytics from '@/pages/admin/AdminAnalytics/AdminAnalytics';
 
 const AppRoutes = () => {
   return (
@@ -60,11 +65,37 @@ const AppRoutes = () => {
       }>
         <Route index element={<TreasurerDashboard />} />
       </Route>
-      
+
       {/* ADMIN - Protected (Admin Only) */}
-<Route path="/admin" element={<AdminLayout />}>
-  <Route index element={<AdminDashboard />} />
-</Route>
+
+
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<AdminDashboard />} />
+        <Route path="/admin/tenants" element={<TenantManagement />} />
+        <Route path="/admin/reconciliation" element={<TenantReconciliation />} />
+        <Route path="/admin/audit-logs" element={<AuditLogs />} />
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
+      </Route>
+
+
+
+      {/* <Route path="/super-admin" element={
+        <ProtectedRoute adminOnly={true}>
+          <AdminLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<AdminDashboard />} />
+        <Route path="/admin/tenants" element={<TenantManagement />} />
+        <Route path="/admin/reconciliation" element={<TenantReconciliation />} />
+        <Route path="/admin/audit-logs" element={<AuditLogs />} />
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
+
+
+      </Route> */}
 
 
 

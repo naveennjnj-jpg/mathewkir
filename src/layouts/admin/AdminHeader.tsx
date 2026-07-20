@@ -348,7 +348,7 @@ const AdminHeader = ({
             </button>
             {/* Application nav menu button */}
 
-            <div className="hidden lg:block">
+            {/* <div className="hidden lg:block">
               <form>
                 <div className="relative">
                   <span className="absolute top-1/2 left-4 -translate-y-1/2">
@@ -384,7 +384,7 @@ const AdminHeader = ({
                   </button>
                 </div>
               </form>
-            </div>
+            </div> */}
           </div>
 
           <div

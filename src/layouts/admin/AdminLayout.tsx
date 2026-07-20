@@ -11,12 +11,23 @@ const AdminLayout = () => {
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-  const closeSidebar = () => setIsSidebarOpen(false);
+  const closeSidebar = () => {
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+  };
   const toggleRightSidebar = () => setIsRightSidebarOpen(!isRightSidebarOpen);
 
   // Apply admin theme if needed
   useEffect(() => {
     // Any admin-specific initialization
+    // Check for dark mode preference
+    const darkMode = localStorage.getItem('darkMode') === 'true';
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, []);
 
   // Get user initials
@@ -32,36 +43,33 @@ const AdminLayout = () => {
   };
 
   return (
-<div className="flex h-screen overflow-hidden">
-  {/* Sidebar */}
-  <AdminSidebar
-    isOpen={isSidebarOpen}
-    onToggle={toggleSidebar}
-    onClose={closeSidebar}
-    adminName={user?.name || "Admin"}
-    adminEmail={user?.email || "admin@email.com"}
-    adminInitials={getUserInitials()}
-  />
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar */}
+      <AdminSidebar
+        isOpen={isSidebarOpen}
+        onToggle={toggleSidebar}
+        onClose={closeSidebar}
+      />
 
-  {/* Main Wrapper */}
-  <div
-    className='relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto'
-  >
-    <AdminHeader
-      onMenuClick={toggleSidebar}
-      isSidebarOpen={isSidebarOpen}
-      adminName={user?.name || "Admin"}
-      adminEmail={user?.email || "admin@email.com"}
-      adminInitials={getUserInitials()}
-      onRightSidebarToggle={toggleRightSidebar}
-      isRightSidebarOpen={isRightSidebarOpen}
-    />
+      {/* Content Area */}
+      <div className="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
+        {/* Header */}
+        <AdminHeader
+          onMenuClick={toggleSidebar}
+          isSidebarOpen={isSidebarOpen}
+          adminName={user?.name || "Admin"}
+          adminEmail={user?.email || "admin@email.com"}
+          adminInitials={getUserInitials()}
+          onRightSidebarToggle={toggleRightSidebar}
+          isRightSidebarOpen={isRightSidebarOpen}
+        />
 
-    <main className="pt-16 p-6 min-h-screen">
-      <Outlet />
-    </main>
-  </div>
-</div>
+        {/* Main Content */}
+        <main className="pt-16 p-4 md:p-6 min-h-screen bg-gray-50 dark:bg-gray-900">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 };
 
