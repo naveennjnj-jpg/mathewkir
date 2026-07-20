@@ -79,7 +79,7 @@ const Login: React.FC = () => {
         navigate("/user");
       }
     } else {
-      setError(result.error || "Login failed");
+      setError(result.message || "Login failed");
     }
 
     setLoading(false);
