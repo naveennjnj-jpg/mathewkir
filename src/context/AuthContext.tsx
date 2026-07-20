@@ -26,18 +26,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-     console.log('Loading user with token:', token);
+      console.log('Loading user with token:', token);
 
       if (!token) {
         setLoading(false);
         return;
       }
-      
+
       const response = await axios.get<AuthResponse>('/api/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
       console.log('User data loaded:', response);
-      
+
       setUser(response.data.data);
       setIsAuthenticated(true);
       setError(null);
@@ -57,12 +57,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(response.data.data);
       setIsAuthenticated(true);
       setError(null);
-      
+
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
         console.log('Token stored in localStorage:', response.data.token);
       }
-      
+
       return { success: true, data: response.data };
     } catch (err) {
       const error = err as AxiosError<{ message: string }>;
@@ -85,13 +85,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
       }
-      
+
       return { success: true, data: response.data };
     } catch (err) {
-      const error = err as AxiosError<{ message: string }>;
-      const errorMessage = error.response?.data?.message || 'Login failed';
+      const error = err as AxiosError<any>;
+
+      let errorMessage = "Login failed";
+
+      if (error.response?.data?.message) {
+        try {
+          errorMessage = JSON.parse(error.response.data.message).message;
+        } catch {
+          errorMessage = error.response.data.message;
+        }
+      }
+
       setError(errorMessage);
-      return { success: false, error: errorMessage };
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
     } finally {
       setLoading(false);
     }
@@ -126,7 +140,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-    const AdminupdateDetails = async (userData: Partial<User>): Promise<{ success: boolean; data?: User; error?: string }> => {
+  const AdminupdateDetails = async (userData: Partial<User>): Promise<{ success: boolean; data?: User; error?: string }> => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put<{ success: boolean; data: User }>(
