@@ -1,5 +1,5 @@
 // src/routes/AppRoutes.tsx
-import { Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 // Layouts
@@ -42,6 +42,7 @@ const AppRoutes = () => {
 
       {/* AUTH - Public */}
       <Route element={<AuthLayout />}>
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/onboarding" element={<CreateAccount />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

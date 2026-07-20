@@ -176,11 +176,10 @@ const Login: React.FC = () => {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={() => setRememberMe(!rememberMe)}
-                  className="rounded border-gray-300 text-[#1768d8] focus:ring-[#1768d8]"
                 />
                 Remember me
               </label>
-              <Link to="/forgot-password" className="text-[#1768d8] hover:text-[#1457b8] transition">
+              <Link to="/forgot-password">
                 Forgot password?
               </Link>
             </div>
