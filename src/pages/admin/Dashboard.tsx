@@ -24,19 +24,19 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      <AdminSidebar
+      {/* <AdminSidebar
         isOpen={isSidebarOpen}
         onToggle={toggleSidebar}
         onClose={closeSidebar}
         adminName="Admin User"
         adminEmail="admin@email.com"
         adminInitials="AU"
-      />
+      /> */}
 
       {/* Content Area */}
       <div className="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
         {/* Header */}
-        <AdminHeader
+        {/* <AdminHeader
           onMenuClick={toggleSidebar}
           isSidebarOpen={isSidebarOpen}
           onRightSidebarToggle={toggleRightSidebar}
@@ -44,7 +44,7 @@ const AdminDashboard: React.FC = () => {
           adminName="Admin User"
           adminEmail="admin@email.com"
           adminInitials="AU"
-        />
+        /> */}
 
         {/* Main Content */}
         <main>

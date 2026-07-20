@@ -32,7 +32,7 @@ const AdminLayout = () => {
   };
 
   return (
-<div className="min-h-screen bg-[#050505] font-['Manrope']">
+<div className="flex h-screen overflow-hidden">
   {/* Sidebar */}
   <AdminSidebar
     isOpen={isSidebarOpen}
@@ -45,7 +45,7 @@ const AdminLayout = () => {
 
   {/* Main Wrapper */}
   <div
-    className='te'
+    className='relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto'
   >
     <AdminHeader
       onMenuClick={toggleSidebar}
