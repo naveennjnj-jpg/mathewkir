@@ -28,7 +28,7 @@ const Login: React.FC = () => {
         // Get subdomain from current URL
         const hostname = window.location.hostname;
         const subdomain = hostname.split('.')[0];
-        
+
         // If subdomain is 'localhost' or 'www' or empty, use default
         const isLocalhost = ['localhost', 'www', ''].includes(subdomain);
         const tenantSubdomain = isLocalhost ? 'default' : subdomain;
@@ -68,27 +68,41 @@ const Login: React.FC = () => {
     detectTenant();
   }, []);
 
-const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setLoading(true);
-  setError(null);
+  // pages/Login.tsx
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-  const result = await login(email, password);
+    const result = await login(email, password);
 
-  if (result.success) {
-    const userRole = result.data?.data?.role;
+    if (result.success) {
+      const userRole = result.data?.data?.role;
 
-    if (userRole === "admin") {
-      navigate("/admin");
+      // Redirect based on role
+      switch (userRole) {
+        case "admin":
+        case "admin":
+          navigate("/admin");
+          break;
+        case "treasurer":
+          // Redirect to treasurer dashboard
+          navigate("/treasurer");
+          break;
+        case "member":
+          navigate("/member");
+          break;
+        default:
+          // Default to tenant dashboard
+          navigate("/login");
+          break;
+      }
     } else {
-      navigate("/user");
+      setError(result.error || "Login failed");
     }
-  } else {
-    setError(result.error || "Login failed");
-  }
 
-  setLoading(false);
-};
+    setLoading(false);
+  };
 
   if (tenantLoading) {
     return (
@@ -246,11 +260,10 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                             onChange={() => setRememberMe(!rememberMe)}
                           />
                           <div
-                            className={`mr-3 flex h-5 w-5 items-center justify-center rounded-md border-[1.25px] ${
-                              rememberMe
-                                ? 'border-brand-500 bg-brand-500'
-                                : 'bg-transparent border-gray-300 dark:border-gray-700'
-                            }`}
+                            className={`mr-3 flex h-5 w-5 items-center justify-center rounded-md border-[1.25px] ${rememberMe
+                              ? 'border-brand-500 bg-brand-500'
+                              : 'bg-transparent border-gray-300 dark:border-gray-700'
+                              }`}
                           >
                             <span className={rememberMe ? '' : 'opacity-0'}>
                               <svg
@@ -315,9 +328,9 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         <div className="relative items-center hidden w-full h-full bg-brand-950 dark:bg-white/5 lg:grid lg:w-1/2">
           <div className="flex items-center justify-center z-1">
             <div className="flex flex-col items-center max-w-xs">
-              <img 
-                src={tenantData?.logo || Logo} 
-                alt={tenantData?.name || 'Tenant'} 
+              <img
+                src={tenantData?.logo || Logo}
+                alt={tenantData?.name || 'Tenant'}
                 className="h-16 w-auto object-contain mb-4"
               />
               <p className="text-center text-gray-400 dark:text-white/60">
@@ -331,7 +344,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         <div className="fixed z-50 hidden bottom-6 right-6 sm:block">
           <button
             className="inline-flex items-center justify-center text-white transition-colors rounded-full size-14 bg-brand-500 hover:bg-brand-600"
-            // Add dark mode toggle logic here
+          // Add dark mode toggle logic here
           >
             <svg
               className="hidden fill-current dark:block"

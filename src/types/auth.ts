@@ -3,7 +3,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'user' | 'admin' | 'editor';
+  role: 'admin' | 'treasurer' | 'member';
   accountType: 'individual' | 'institutional';
   institution?: string;
   isVerified: boolean;

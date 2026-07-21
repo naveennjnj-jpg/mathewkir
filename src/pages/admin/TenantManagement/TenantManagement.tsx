@@ -192,8 +192,20 @@ const TenantManagement: React.FC = () => {
         toast.error(response.data.message || 'Failed to create tenant');
       }
     } catch (error: any) {
-      console.error('Error creating tenant:', error);
-      toast.error(error.response?.data?.message || 'Failed to create tenant');
+      console.error("Error creating tenant:", error);
+
+      let message = "Failed to create tenant";
+
+      if (error.response?.data?.message) {
+        try {
+          const parsed = JSON.parse(error.response.data.message);
+          message = parsed.message;
+        } catch {
+          message = error.response.data.message;
+        }
+      }
+
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -545,8 +557,8 @@ const TenantManagement: React.FC = () => {
                               <button
                                 onClick={() => toggleTenantStatus(tenant)}
                                 className={`p-1 rounded-lg transition-colors ${tenant.status === 'active'
-                                    ? 'hover:bg-yellow-50 dark:hover:bg-yellow-500/10 text-yellow-600'
-                                    : 'hover:bg-green-50 dark:hover:bg-green-500/10 text-green-600'
+                                  ? 'hover:bg-yellow-50 dark:hover:bg-yellow-500/10 text-yellow-600'
+                                  : 'hover:bg-green-50 dark:hover:bg-green-500/10 text-green-600'
                                   }`}
                                 title={tenant.status === 'active' ? 'Suspend' : 'Activate'}
                               >
