@@ -1,6 +1,7 @@
 // layouts/admin/AdminLayout.tsx
 import React, { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
+import { Toaster } from 'react-hot-toast';
 import AdminSidebar from "./AdminSidebar";
 import AdminHeader from "./AdminHeader";
 import { useAuth } from "@/context/AuthContext";
@@ -20,8 +21,6 @@ const AdminLayout = () => {
 
   // Apply admin theme if needed
   useEffect(() => {
-    // Any admin-specific initialization
-    // Check for dark mode preference
     const darkMode = localStorage.getItem('darkMode') === 'true';
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -39,11 +38,64 @@ const AdminLayout = () => {
       }
       return user.name.slice(0, 2).toUpperCase();
     }
-    return 'A';
+    return 'AD';
   };
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Toast Notifications - Moved down */}
+      <Toaster
+        position="top-right"
+        reverseOrder={false}
+        gutter={8}
+        containerStyle={{
+          top: 80, // Move down from top (header height is ~64px, so 80px gives some gap)
+          right: 20,
+        }}
+        toastOptions={{
+          duration: 5000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            fontSize: '14px',
+          },
+          success: {
+            duration: 3000,
+            iconTheme: {
+              primary: '#22c55e',
+              secondary: '#fff',
+            },
+            style: {
+              background: '#f0fdf4',
+              color: '#166534',
+              border: '1px solid #bbf7d0',
+            },
+          },
+          error: {
+            duration: 4000,
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+            style: {
+              background: '#fef2f2',
+              color: '#991b1b',
+              border: '1px solid #fecaca',
+            },
+          },
+          loading: {
+            style: {
+              background: '#f3f4f6',
+              color: '#374151',
+              border: '1px solid #e5e7eb',
+            },
+          },
+        }}
+      />
+
       {/* Sidebar */}
       <AdminSidebar
         isOpen={isSidebarOpen}
