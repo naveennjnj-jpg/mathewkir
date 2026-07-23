@@ -30,7 +30,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   // Apply theme to DOM - REMOVES OLD THEME COMPLETELY
   const applyTheme = (themeName: string) => {
-    console.log('🔄 Applying theme:', themeName);
+    // console.log('🔄 Applying theme:', themeName);
     
     // Remove ALL theme classes first
     document.documentElement.classList.remove('dark', 'light');
@@ -40,21 +40,21 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     if (themeName === 'dark') {
       document.documentElement.classList.add('dark');
       document.documentElement.setAttribute('data-theme', 'dark');
-      console.log('🌙 Dark mode applied');
+      // console.log('🌙 Dark mode applied');
     } else if (themeName === 'light') {
       document.documentElement.classList.add('light');
       document.documentElement.setAttribute('data-theme', 'light');
-      console.log('☀️ Light mode applied');
+      // console.log('☀️ Light mode applied');
     } else if (themeName === 'system') {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       if (prefersDark) {
         document.documentElement.classList.add('dark');
         document.documentElement.setAttribute('data-theme', 'dark');
-        console.log('🌙 System dark mode applied');
+        // console.log('🌙 System dark mode applied');
       } else {
         document.documentElement.classList.add('light');
         document.documentElement.setAttribute('data-theme', 'light');
-        console.log('☀️ System light mode applied');
+        // console.log('☀️ System light mode applied');
       }
     }
     
@@ -75,7 +75,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         return;
       }
 
-      console.log('🔑 Fetching user theme from API...');
+      // console.log('🔑 Fetching user theme from API...');
       const response = await axios.get(`${API_URL}/api/auth/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -86,7 +86,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         const userData = response.data.data;
         const userTheme = userData.theme || 'light';
         
-        console.log('✅ User theme from API:', userTheme);
+        // console.log('✅ User theme from API:', userTheme);
         
         // REMOVE OLD THEME and apply new
         setTheme(userTheme);
@@ -218,7 +218,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     fetchUserTheme();
   }, []);
 
-  console.log('🏷️ Current theme state:', { theme, isDark });
+  // console.log('🏷️ Current theme state:', { theme, isDark });
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme: handleSetTheme, isDark }}>

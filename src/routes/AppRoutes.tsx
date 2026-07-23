@@ -17,10 +17,18 @@ import ResetPassword from "@/pages/auth/ResetPassword";
 // Members Pages
 import UserDashboard from "@/pages/member/Dashboard";
 
-
-
 // Treasurer Pages
 import TreasurerDashboard from "@/pages/treasurer/Dashboard";
+import MembersManagement from "@/pages/treasurer/MembersManagement/MembersManagement";
+import PaymentVerification from "@/pages/treasurer/PaymentVerification/PaymentVerification";
+import PayoutRecords from "@/pages/treasurer/PayoutRecords/PayoutRecords";
+import Reports from "@/pages/treasurer/Reports/Reports";
+import NotificationsSettings from "@/pages/treasurer/NotificationsSettings/NotificationsSettings";
+import AuditLog from "@/pages/treasurer/AuditLog/AuditLog";
+import EventsList from '@/pages/treasurer/EventDetails/EventsList';
+import EventDetails from '@/pages/treasurer/EventDetails/EventDetails';
+import CreateEvent from '@/pages/treasurer/CreateEvent/CreateEvent';
+import EditEvent from '@/pages/treasurer/EventDetails/EditEvent';
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -34,12 +42,6 @@ import AdminAnalytics from '@/pages/admin/AdminAnalytics/AdminAnalytics';
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* WEBSITE - Public */}
-      {/* <Route path="/" element={<WebsiteLayout />}>
-        <Route index element={<Home />} />
-        <Route path="/ticket" element={<Ticket />} />
-      </Route> */}
-
       {/* AUTH - Public */}
       <Route element={<AuthLayout />}>
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -49,58 +51,54 @@ const AppRoutes = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
       </Route>
 
-      {/* USER - Protected */}
+      {/* MEMBER - Protected (Member Only) */}
       <Route path="/member" element={
-        <ProtectedRoute>
+        <ProtectedRoute memberOnly={true}>
           <MemberLayout />
         </ProtectedRoute>
       }>
         <Route index element={<UserDashboard />} />
+        <Route path="dashboard" element={<UserDashboard />} />
       </Route>
 
-      {/* Treasurer's - Protected (Admin Only) */}
+      {/* TREASURER - Protected (Treasurer Only) */}
       <Route path="/treasurer" element={
-        <ProtectedRoute adminOnly={true}>
+        <ProtectedRoute treasurerOnly={true}>
           <TreasurerLayout />
         </ProtectedRoute>
       }>
         <Route index element={<TreasurerDashboard />} />
+        <Route path="dashboard" element={<TreasurerDashboard />} />
+        <Route path="members" element={<MembersManagement />} />
+        <Route path="events" element={<EventsList />} />
+        <Route path="events/create" element={<CreateEvent />} />
+        <Route path="events/:id" element={<EventDetails />} />
+        <Route path="events/:id/edit" element={<EditEvent />} />
+        <Route path="payments/verify" element={<PaymentVerification />} />
+        <Route path="payouts" element={<PayoutRecords />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="notifications" element={<NotificationsSettings />} />
+        <Route path="audit" element={<AuditLog />} />
       </Route>
 
       {/* ADMIN - Protected (Admin Only) */}
-
-
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminDashboard />} />
-        <Route path="/admin/tenants" element={<TenantManagement />} />
-        <Route path="/admin/reconciliation" element={<TenantReconciliation />} />
-        <Route path="/admin/audit-logs" element={<AuditLogs />} />
-        <Route path="/admin/users" element={<UserManagement />} />
-        <Route path="/admin/analytics" element={<AdminAnalytics />} />
-        <Route path="/admin/settings" element={<AdminSettings />} />
-      </Route>
-
-
-
-      {/* <Route path="/super-admin" element={
+      <Route path="/admin" element={
         <ProtectedRoute adminOnly={true}>
           <AdminLayout />
         </ProtectedRoute>
       }>
         <Route index element={<AdminDashboard />} />
-        <Route path="/admin/tenants" element={<TenantManagement />} />
-        <Route path="/admin/reconciliation" element={<TenantReconciliation />} />
-        <Route path="/admin/audit-logs" element={<AuditLogs />} />
-        <Route path="/admin/users" element={<UserManagement />} />
-        <Route path="/admin/analytics" element={<AdminAnalytics />} />
-        <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="tenants" element={<TenantManagement />} />
+        <Route path="reconciliation" element={<TenantReconciliation />} />
+        <Route path="audit-logs" element={<AuditLogs />} />
+        <Route path="users" element={<UserManagement />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="settings" element={<AdminSettings />} />
+      </Route>
 
-
-      </Route> */}
-
-
-
-
+      {/* Catch all - redirect to login */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 };

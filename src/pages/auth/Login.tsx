@@ -79,9 +79,10 @@ const Login: React.FC = () => {
     if (result.success) {
       const userRole = result.data?.data?.role;
 
+      console.log("userRole",userRole)
+
       // Redirect based on role
       switch (userRole) {
-        case "admin":
         case "admin":
           navigate("/admin");
           break;

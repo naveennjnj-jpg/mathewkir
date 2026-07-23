@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import axios, { AxiosError } from 'axios';
-import { User, AuthResponse, RegisterData, AuthContextType } from '../types/auth';
+import { User, AuthResponse, RegisterData, AuthContextType, MeResponse } from '../types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -26,19 +26,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      console.log('Loading user with token:', token);
+
 
       if (!token) {
         setLoading(false);
         return;
       }
 
-      const response = await axios.get<AuthResponse>('/api/auth/me', {
+      const response = await axios.get<MeResponse>('/api/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      console.log('User data loaded:', response);
 
-      setUser(response.data.data);
+      setUser(response.data.data.user);
       setIsAuthenticated(true);
       setError(null);
     } catch (err) {

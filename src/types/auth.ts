@@ -1,13 +1,31 @@
 // types/auth.ts
 export interface User {
-  id: string;
-  name: string;
+  user_id: string;
   email: string;
-  role: 'admin' | 'treasurer' | 'member';
-  accountType: 'individual' | 'institutional';
-  institution?: string;
-  isVerified: boolean;
-  createdAt: string;
+  full_name: string;
+  phone: string | null;
+  role: "admin" | "treasurer" | "member";
+  is_super_admin: boolean;
+  created_at: string;
+}
+
+export interface Membership {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  tenantSubdomain: string;
+  role: "admin" | "treasurer" | "member";
+  status: string;
+  joinedAt: string;
+}
+
+export interface MeResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: User;
+    memberships: Membership[];
+  };
 }
 
 export interface AuthResponse {
