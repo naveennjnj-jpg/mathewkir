@@ -47,7 +47,7 @@ const Login: React.FC = () => {
         } else {
           // Fallback to default tenant
           setTenantData({
-            name: 'MyApp',
+            name: 'Benevolent Fund Management Platform',
             logo: Logo,
             subdomain: 'default'
           });
@@ -335,7 +335,7 @@ const Login: React.FC = () => {
                 className="h-16 w-auto object-contain mb-4"
               />
               <p className="text-center text-gray-400 dark:text-white/60">
-                {tenantData?.name || 'MyApp'} - Admin Dashboard
+                {tenantData?.name || 'Benevolent Fund Management Platform'} - Admin Dashboard
               </p>
             </div>
           </div>
