@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import Swal from "sweetalert2";
 
 interface Member {
   id: string;
@@ -38,6 +39,7 @@ const MembersManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,6 +49,14 @@ const MembersManagement: React.FC = () => {
 
   // Form state
   const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    status: 'active'
+  });
+
+  // Edit form state
+  const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
     phone: '',
@@ -120,8 +130,24 @@ const MembersManagement: React.FC = () => {
     }
   ];
 
+  // Handle Add Member
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate
+    if (!formData.name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!formData.email.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+    if (!formData.email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
     try {
       const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
       const response = await axios.post(
@@ -136,23 +162,92 @@ const MembersManagement: React.FC = () => {
       );
 
       if (response.data.success) {
-        toast.success('Member added successfully');
+        toast.success('Member added successfully! 🎉');
         setShowAddModal(false);
         setFormData({ name: '', email: '', phone: '', status: 'active' });
         fetchMembers();
+      } else {
+        toast.error(response.data.message || 'Failed to add member');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding member:', error);
-      toast.error('Failed to add member');
+      const message = error.response?.data?.message || 'Failed to add member';
+      toast.error(message);
     }
   };
 
-  const handleUpdateMember = async (memberId: string, data: Partial<Member>) => {
+  // Handle Edit Member
+  const handleEditClick = (member: Member) => {
+    setSelectedMember(member);
+    setEditFormData({
+      name: member.name,
+      email: member.email,
+      phone: member.phone || '',
+      status: member.status
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedMember) return;
+
+    // Validate
+    if (!editFormData.name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!editFormData.email.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+    if (!editFormData.email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
+      const response = await axios.put(
+        `${API_URL}/api/treasurer/members/${selectedMember.id}`,
+        editFormData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Tenant-Subdomain': tenantSubdomain,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Member updated successfully! ✅');
+        setShowEditModal(false);
+        setSelectedMember(null);
+        setEditFormData({ name: '', email: '', phone: '', status: 'active' });
+        fetchMembers();
+      } else {
+        toast.error(response.data.message || 'Failed to update member');
+      }
+    } catch (error: any) {
+      console.error('Error updating member:', error);
+      const message = error.response?.data?.message || 'Failed to update member';
+      toast.error(message);
+    }
+  };
+
+  // Handle Toggle Status
+  const handleToggleStatus = async (memberId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const action = newStatus === 'active' ? 'activate' : 'deactivate';
+    
+    if (!confirm(`Are you sure you want to ${action} this member?`)) return;
+
     try {
       const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
       const response = await axios.put(
         `${API_URL}/api/treasurer/members/${memberId}`,
-        data,
+        { status: newStatus },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -162,40 +257,71 @@ const MembersManagement: React.FC = () => {
       );
 
       if (response.data.success) {
-        toast.success('Member updated successfully');
+        toast.success(`Member ${action}d successfully!`);
         fetchMembers();
       }
     } catch (error) {
-      console.error('Error updating member:', error);
-      toast.error('Failed to update member');
+      console.error('Error toggling status:', error);
+      toast.error('Failed to update member status');
     }
   };
 
-  const handleDeleteMember = async (memberId: string) => {
-    if (!confirm('Are you sure you want to delete this member?')) return;
 
-    try {
-      const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
-      const response = await axios.delete(
-        `${API_URL}/api/treasurer/members/${memberId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Tenant-Subdomain': tenantSubdomain,
-          },
-        }
-      );
+// Handle Delete Member
+const handleDeleteMember = async (memberId: string, memberName: string) => {
+  const result = await Swal.fire({
+    title: "Delete Member?",
+    html: `Are you sure you want to delete <b>${memberName}</b>?<br><br>This action cannot be undone.`,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#dc2626",
+    cancelButtonColor: "#6b7280",
+    confirmButtonText: "Yes, Delete",
+    cancelButtonText: "Cancel",
+    reverseButtons: true,
+    focusCancel: true,
+  });
 
-      if (response.data.success) {
-        toast.success('Member deleted successfully');
-        fetchMembers();
+  if (!result.isConfirmed) return;
+
+  try {
+    const tenantSubdomain = localStorage.getItem("tenantSubdomain") || "";
+
+    const response = await axios.delete(
+      `${API_URL}/api/treasurer/members/${memberId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Tenant-Subdomain": tenantSubdomain,
+        },
       }
-    } catch (error) {
-      console.error('Error deleting member:', error);
-      toast.error('Failed to delete member');
-    }
-  };
+    );
 
+    if (response.data.success) {
+      await Swal.fire({
+        icon: "success",
+        title: "Deleted!",
+        text: "Member deleted successfully.",
+        timer: 1800,
+        showConfirmButton: false,
+      });
+
+      fetchMembers();
+    }
+  } catch (error: any) {
+    console.error("Error deleting member:", error);
+
+    Swal.fire({
+      icon: "error",
+      title: "Delete Failed",
+      text:
+        error.response?.data?.message ||
+        "Failed to delete member.",
+    });
+  }
+};
+
+  // Handle File Upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -214,6 +340,7 @@ const MembersManagement: React.FC = () => {
           }, {});
         });
         setCsvPreview(rows.slice(0, 5));
+        toast.success(`File loaded: ${file.name}`);
       };
       reader.readAsText(file);
     }
@@ -256,7 +383,7 @@ const MembersManagement: React.FC = () => {
       );
 
       if (response.data.success) {
-        toast.success('Members imported successfully');
+        toast.success(`Successfully imported ${csvPreview.length} members! 🎉`);
         setShowImportModal(false);
         setCsvFile(null);
         setCsvPreview([]);
@@ -304,13 +431,16 @@ const MembersManagement: React.FC = () => {
         <div className="flex gap-2">
           <button
             onClick={() => setShowImportModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
           >
             <Upload className="w-4 h-4" />
             Import CSV
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setFormData({ name: '', email: '', phone: '', status: 'active' });
+              setShowAddModal(true);
+            }}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
           >
             <Plus className="w-4 h-4" />
@@ -340,92 +470,126 @@ const MembersManagement: React.FC = () => {
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
+        <button
+          onClick={fetchMembers}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {/* Members Table */}
       <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden dark:border-gray-800">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-800">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding Dues</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredMembers.map((member) => (
-                <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
-                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">
-                    {member.name}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                    {member.email}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                    {member.phone}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(member.joinDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      member.status === 'active'
-                        ? 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-500'
-                        : 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-500'
-                    }`}>
-                      {member.status === 'active' ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white">
-                    {formatCurrency(member.outstandingDues)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleUpdateMember(member.id, { status: member.status === 'active' ? 'inactive' : 'active' })}
-                        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                        title={member.status === 'active' ? 'Deactivate' : 'Activate'}
-                      >
-                        {member.status === 'active' ? (
-                          <XCircle className="w-4 h-4 text-yellow-500" />
-                        ) : (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        )}
-                      </button>
-                      <button
-                        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteMember(member.id)}
-                        className="p-1 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
-                      </button>
-                    </div>
-                  </td>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+          </div>
+        ) : filteredMembers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Users className="w-12 h-12 text-gray-300 mb-3" />
+            <p className="text-gray-500">No members found</p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="mt-3 text-brand-500 hover:text-brand-600 font-medium"
+            >
+              Add your first member
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-800">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding Dues</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {filteredMembers.map((member) => (
+                  <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">
+                      {member.name}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      {member.email}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      {member.phone || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      {new Date(member.joinDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        member.status === 'active'
+                          ? 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-500'
+                          : 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-500'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                          member.status === 'active' ? 'bg-green-500' : 'bg-red-500'
+                        }`} />
+                        {member.status === 'active' ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white">
+                      {formatCurrency(member.outstandingDues)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleToggleStatus(member.id, member.status)}
+                          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                          title={member.status === 'active' ? 'Deactivate' : 'Activate'}
+                        >
+                          {member.status === 'active' ? (
+                            <XCircle className="w-4 h-4 text-yellow-500" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleEditClick(member)}
+                          className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMember(member.id, member.name)}
+                          className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Add Member Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-7 w-full max-w-md">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-7 w-full max-w-md animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Add Member</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Add New Member</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Fill in the details to add a new member</p>
+              </div>
+              <button 
+                onClick={() => setShowAddModal(false)} 
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -433,39 +597,42 @@ const MembersManagement: React.FC = () => {
             <form onSubmit={handleAddMember} className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Name <span className="text-red-500">*</span>
+                  Full Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter member's full name"
                   required
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
                 />
               </div>
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Email <span className="text-red-500">*</span>
+                  Email Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="Enter member's email"
                   required
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
                 />
               </div>
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Phone
+                  Phone Number
                 </label>
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                  placeholder="Enter phone number"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
                 />
               </div>
 
@@ -476,7 +643,7 @@ const MembersManagement: React.FC = () => {
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -487,15 +654,114 @@ const MembersManagement: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700"
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
+                  className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
                 >
                   Add Member
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditModal && selectedMember && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-7 w-full max-w-md animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Edit Member</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Update member information</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedMember(null);
+                }} 
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateMember} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  placeholder="Enter member's full name"
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Email Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  placeholder="Enter member's email"
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={editFormData.phone}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  placeholder="Enter phone number"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Status
+                </label>
+                <select
+                  value={editFormData.status}
+                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedMember(null);
+                  }}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
+                >
+                  Update Member
                 </button>
               </div>
             </form>
@@ -506,17 +772,27 @@ const MembersManagement: React.FC = () => {
       {/* Import CSV Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-7 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-7 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Import CSV</h3>
-              <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Import Members from CSV</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Upload a CSV file to bulk import members</p>
+              </div>
+              <button onClick={() => {
+                setShowImportModal(false);
+                setCsvFile(null);
+                setCsvPreview([]);
+                setValidationErrors([]);
+              }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4">
               {/* File Upload */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                csvFile ? 'border-green-500 bg-green-50 dark:bg-green-500/10' : 'border-gray-300 dark:border-gray-700'
+              }`}>
                 <input
                   type="file"
                   accept=".csv"
@@ -525,8 +801,12 @@ const MembersManagement: React.FC = () => {
                   id="csvFile"
                 />
                 <label htmlFor="csvFile" className="cursor-pointer">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600 dark:text-gray-300">Click or drag to upload CSV file</p>
+                  <Upload className={`w-12 h-12 mx-auto mb-3 ${
+                    csvFile ? 'text-green-500' : 'text-gray-400'
+                  }`} />
+                  <p className="text-gray-600 dark:text-gray-300">
+                    {csvFile ? csvFile.name : 'Click or drag to upload CSV file'}
+                  </p>
                   <p className="text-sm text-gray-400">Supports .csv files</p>
                 </label>
               </div>
@@ -535,22 +815,27 @@ const MembersManagement: React.FC = () => {
               {csvPreview.length > 0 && (
                 <div>
                   <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Column Mapping</h4>
+                  <p className="text-sm text-gray-500 mb-3">Map CSV columns to member fields</p>
                   <div className="grid grid-cols-3 gap-3">
                     {Object.keys(columnMapping).map((field) => (
-                      <select
-                        key={field}
-                        value={columnMapping[field as keyof typeof columnMapping]}
-                        onChange={(e) => setColumnMapping({
-                          ...columnMapping,
-                          [field]: e.target.value
-                        })}
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
-                      >
-                        <option value="">Select {field}</option>
-                        {Object.keys(csvPreview[0]).map((header) => (
-                          <option key={header} value={header}>{header}</option>
-                        ))}
-                      </select>
+                      <div key={field}>
+                        <label className="block text-xs font-medium text-gray-500 mb-1 capitalize">
+                          {field} <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={columnMapping[field as keyof typeof columnMapping]}
+                          onChange={(e) => setColumnMapping({
+                            ...columnMapping,
+                            [field]: e.target.value
+                          })}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                        >
+                          <option value="">Select column</option>
+                          {Object.keys(csvPreview[0]).map((header) => (
+                            <option key={header} value={header}>{header}</option>
+                          ))}
+                        </select>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -559,13 +844,15 @@ const MembersManagement: React.FC = () => {
               {/* Preview */}
               {csvPreview.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Preview</h4>
+                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Preview (first 5 rows)</h4>
                   <div className="overflow-x-auto border rounded-lg">
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr className="border-b bg-gray-50 dark:bg-gray-800">
                           {Object.keys(csvPreview[0]).map((header) => (
-                            <th key={header} className="px-3 py-2 text-left">{header}</th>
+                            <th key={header} className="px-3 py-2 text-left text-xs font-medium text-gray-500">
+                              {header}
+                            </th>
                           ))}
                         </tr>
                       </thead>
@@ -573,7 +860,9 @@ const MembersManagement: React.FC = () => {
                         {csvPreview.map((row, index) => (
                           <tr key={index} className="border-b">
                             {Object.values(row).map((value: any, i) => (
-                              <td key={i} className="px-3 py-2">{value}</td>
+                              <td key={i} className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">
+                                {value || '-'}
+                              </td>
                             ))}
                           </tr>
                         ))}
@@ -587,7 +876,7 @@ const MembersManagement: React.FC = () => {
               {validationErrors.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <h4 className="font-medium text-red-600 mb-2">Validation Errors</h4>
-                  <ul className="list-disc list-inside text-sm text-red-600">
+                  <ul className="list-disc list-inside text-sm text-red-600 space-y-1">
                     {validationErrors.map((error, index) => (
                       <li key={index}>{error}</li>
                     ))}
@@ -598,15 +887,20 @@ const MembersManagement: React.FC = () => {
               <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
-                  onClick={() => setShowImportModal(false)}
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50"
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setCsvFile(null);
+                    setCsvPreview([]);
+                    setValidationErrors([]);
+                  }}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleImportCSV}
-                  disabled={!csvFile}
-                  className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+                  disabled={!csvFile || !columnMapping.name || !columnMapping.email}
+                  className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Import Members
                 </button>

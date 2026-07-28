@@ -69,11 +69,7 @@ const CreateEvent: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
-    if (selectedMembers.length === 0) {
-      toast.error('Please select at least one member');
-      return;
-    }
+  const selectedMembers = members.map((member: any) => member.id); // change id if needed
 
     setIsSubmitting(true);
 
@@ -242,7 +238,7 @@ const CreateEvent: React.FC = () => {
         </div>
 
         {/* Select Members */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
+        {/* <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
               Select Members
@@ -290,7 +286,7 @@ const CreateEvent: React.FC = () => {
               ))
             )}
           </div>
-        </div>
+        </div> */}
 
         {/* Beneficiary Info */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">

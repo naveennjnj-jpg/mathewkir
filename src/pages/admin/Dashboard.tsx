@@ -422,7 +422,7 @@ const AdminDashboard: React.FC = () => {
                   </p>
                 </div>
                 <Link
-                  to="/super-admin/tenants"
+                  to="/admin/tenants"
                   className="text-sm text-brand-500 hover:text-brand-600 font-medium"
                 >
                   View All →
@@ -500,14 +500,14 @@ const AdminDashboard: React.FC = () => {
                           <td className="py-3 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <Link
-                                to={`/super-admin/tenants/${tenant.id}`}
+                                to={`/admin/tenants/${tenant.id}`}
                                 className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
                                 title="View Details"
                               >
                                 <Eye className="w-4 h-4 text-gray-400 hover:text-gray-600" />
                               </Link>
                               <Link
-                                to={`/super-admin/tenants/${tenant.id}/edit`}
+                                to={`/admin/tenants/${tenant.id}/edit`}
                                 className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
                                 title="Edit Tenant"
                               >
@@ -538,7 +538,7 @@ const AdminDashboard: React.FC = () => {
             {/* Quick Actions */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Link
-                to="/super-admin/reconciliation"
+                to="/admin/reconciliation"
                 className="rounded-2xl border border-gray-200 bg-white p-6 hover:border-brand-500 transition-colors dark:border-gray-800 dark:bg-white/[0.03]"
               >
                 <div className="flex items-center gap-3">
@@ -557,7 +557,7 @@ const AdminDashboard: React.FC = () => {
               </Link>
 
               <Link
-                to="/super-admin/audit-logs"
+                to="/admin/audit-logs"
                 className="rounded-2xl border border-gray-200 bg-white p-6 hover:border-brand-500 transition-colors dark:border-gray-800 dark:bg-white/[0.03]"
               >
                 <div className="flex items-center gap-3">
@@ -576,7 +576,7 @@ const AdminDashboard: React.FC = () => {
               </Link>
 
               <Link
-                to="/super-admin/users"
+                to="/admin/users"
                 className="rounded-2xl border border-gray-200 bg-white p-6 hover:border-brand-500 transition-colors dark:border-gray-800 dark:bg-white/[0.03]"
               >
                 <div className="flex items-center gap-3">

@@ -22,6 +22,24 @@ interface Member {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  status?: string;
+}
+
+interface Contribution {
+  id: string;
+  memberName: string;
+  memberEmail: string;
+  amountDue: number;
+  amountPaid: number;
+  status: string;
+}
+
+interface Beneficiary {
+  id: string;
+  name: string;
+  relationship: string;
+  contactInfo: string | null;
 }
 
 interface EventData {
@@ -31,10 +49,16 @@ interface EventData {
   fixedAmount: number;
   deadline: string;
   status: string;
-  beneficiaryName?: string;
-  beneficiaryRelationship?: string;
-  supportingDocUrl?: string;
-  members: string[];
+  totalCollected: number;
+  totalMembers: number;
+  paidCount: number;
+  pendingCount: number;
+  overdueCount: number;
+  createdAt: string;
+  creatorName: string;
+  beneficiary: Beneficiary | null;
+  supportingDocUrl: string | null;
+  contributions: Contribution[];
 }
 
 const EditEvent: React.FC = () => {
@@ -46,7 +70,7 @@ const EditEvent: React.FC = () => {
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [existingFile, setExistingFile] = useState<string | null>(null);
+  const [removeFile, setRemoveFile] = useState(false);
   const [eventData, setEventData] = useState<EventData | null>(null);
 
   const token = localStorage.getItem("token");
@@ -59,7 +83,8 @@ const EditEvent: React.FC = () => {
     deadline: '',
     status: 'active',
     beneficiaryName: '',
-    beneficiaryRelationship: ''
+    beneficiaryRelationship: '',
+    beneficiaryId: ''
   });
 
   // Fetch event data and members
@@ -83,17 +108,23 @@ const EditEvent: React.FC = () => {
       if (response.data.success) {
         const data = response.data.data;
         setEventData(data);
+        
+        // Set form data with proper beneficiary mapping
         setFormData({
           title: data.title || '',
           description: data.description || '',
           fixedAmount: data.fixedAmount?.toString() || '',
           deadline: data.deadline ? new Date(data.deadline).toISOString().split('T')[0] : '',
           status: data.status || 'active',
-          beneficiaryName: data.beneficiaryName || '',
-          beneficiaryRelationship: data.beneficiaryRelationship || ''
+          beneficiaryName: data.beneficiary?.name || '',
+          beneficiaryRelationship: data.beneficiary?.relationship || '',
+          beneficiaryId: data.beneficiary?.id || ''
         });
-        setSelectedMembers(data.contributions?.map((c: any) => c.id) || []);
-        setExistingFile(data.supportingDocUrl || null);
+        
+        // Set selected members from contributions
+        if (data.contributions) {
+          setSelectedMembers(data.contributions.map((c: Contribution) => c.id));
+        }
       } else {
         toast.error(response.data.message || 'Failed to fetch event');
         navigate('/treasurer/events');
@@ -122,6 +153,7 @@ const EditEvent: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching members:', error);
+      toast.error('Failed to fetch members');
     }
   };
 
@@ -131,33 +163,57 @@ const EditEvent: React.FC = () => {
 
     try {
       const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
-      const formDataToSend = new FormData();
       
-      // Append form fields
-      Object.entries(formData).forEach(([key, value]) => {
-        formDataToSend.append(key, value);
-      });
-      
-      formDataToSend.append('members', JSON.stringify(selectedMembers));
-      
-      if (file) {
-        formDataToSend.append('document', file);
+      // Prepare data for API
+      const submitData: any = {
+        title: formData.title,
+        description: formData.description,
+        fixedAmount: parseFloat(formData.fixedAmount),
+        deadline: formData.deadline,
+        status: formData.status,
+        beneficiaryName: formData.beneficiaryName,
+        beneficiaryRelationship: formData.beneficiaryRelationship,
+        memberIds: selectedMembers
+      };
+
+      // Handle file removal
+      if (removeFile) {
+        submitData.removeDocument = true;
       }
 
+      // Send as JSON (not FormData)
       const response = await axios.put(
         `${API_URL}/api/treasurer/events/${id}`,
-        formDataToSend,
+        submitData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
             'X-Tenant-Subdomain': tenantSubdomain,
-            'Content-Type': 'multipart/form-data',
+            'Content-Type': 'application/json',
           },
         }
       );
 
+      // Handle file upload separately if there's a new file
+      if (file && response.data.success) {
+        const fileFormData = new FormData();
+        fileFormData.append('document', file);
+        
+        await axios.post(
+          `${API_URL}/api/treasurer/events/${id}/upload-document`,
+          fileFormData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'X-Tenant-Subdomain': tenantSubdomain,
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+      }
+
       if (response.data.success) {
-        toast.success('Event updated successfully!');
+        toast.success('Event updated successfully! 🎉');
         navigate(`/treasurer/events/${id}`);
       } else {
         toast.error(response.data.message || 'Failed to update event');
@@ -185,7 +241,7 @@ const EditEvent: React.FC = () => {
       });
 
       if (response.data.success) {
-        toast.success('Event deleted successfully');
+        toast.success('Event deleted successfully 🗑️');
         navigate('/treasurer/events');
       } else {
         toast.error(response.data.message || 'Failed to delete event');
@@ -203,6 +259,11 @@ const EditEvent: React.FC = () => {
       setSelectedMembers(members.map(m => m.id));
     }
     setSelectAll(!selectAll);
+  };
+
+  // Check if a member is selected based on their ID being in the contributions
+  const isMemberSelected = (memberId: string) => {
+    return eventData?.contributions?.some(c => c.id === memberId) || false;
   };
 
   const formatCurrency = (amount: number) => {
@@ -283,7 +344,7 @@ const EditEvent: React.FC = () => {
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
               />
             </div>
 
@@ -295,7 +356,7 @@ const EditEvent: React.FC = () => {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
               />
             </div>
 
@@ -313,7 +374,7 @@ const EditEvent: React.FC = () => {
                     required
                     min="0"
                     step="0.01"
-                    className="w-full rounded-lg border border-gray-300 pl-8 pr-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                    className="w-full rounded-lg border border-gray-300 pl-8 pr-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
                   />
                 </div>
               </div>
@@ -327,7 +388,7 @@ const EditEvent: React.FC = () => {
                   value={formData.deadline}
                   onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
                   required
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
                 />
               </div>
 
@@ -338,7 +399,7 @@ const EditEvent: React.FC = () => {
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
                 >
                   <option value="active">Active</option>
                   <option value="completed">Completed</option>
@@ -350,7 +411,7 @@ const EditEvent: React.FC = () => {
         </div>
 
         {/* Select Members */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
+        {/* <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
             Select Members
           </h2>
@@ -363,31 +424,49 @@ const EditEvent: React.FC = () => {
                 onChange={handleSelectAll}
                 className="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
               />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Select All</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Select All Members</span>
+              <span className="text-xs text-gray-400">
+                ({selectedMembers.length} selected)
+              </span>
             </label>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-            {members.map((member) => (
-              <label key={member.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedMembers.includes(member.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedMembers([...selectedMembers, member.id]);
-                    } else {
-                      setSelectedMembers(selectedMembers.filter(id => id !== member.id));
-                    }
-                  }}
-                  className="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{member.name}</span>
-                <span className="text-xs text-gray-400">{member.email}</span>
-              </label>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto border rounded-lg p-2">
+            {members.length === 0 ? (
+              <div className="col-span-2 text-center py-4 text-gray-500">
+                No members available. Please add members first.
+              </div>
+            ) : (
+              members.map((member) => (
+                <label 
+                  key={member.id} 
+                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedMembers.includes(member.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedMembers([...selectedMembers, member.id]);
+                      } else {
+                        setSelectedMembers(selectedMembers.filter(id => id !== member.id));
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {member.name}
+                    </span>
+                    <span className="text-xs text-gray-400 block truncate">
+                      {member.email}
+                    </span>
+                  </div>
+                </label>
+              ))
+            )}
           </div>
-        </div>
+        </div> */}
 
         {/* Beneficiary Info */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
@@ -404,7 +483,8 @@ const EditEvent: React.FC = () => {
                 type="text"
                 value={formData.beneficiaryName}
                 onChange={(e) => setFormData({ ...formData, beneficiaryName: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                placeholder="Enter beneficiary name"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
               />
             </div>
 
@@ -416,7 +496,8 @@ const EditEvent: React.FC = () => {
                 type="text"
                 value={formData.beneficiaryRelationship}
                 onChange={(e) => setFormData({ ...formData, beneficiaryRelationship: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                placeholder="e.g., Father, Mother, Spouse"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
               />
             </div>
           </div>
@@ -428,34 +509,70 @@ const EditEvent: React.FC = () => {
             Supporting Document (Optional)
           </h2>
 
-          {existingFile && (
-            <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-between">
+          {eventData.supportingDocUrl && !removeFile && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  Current file: {existingFile.split('/').pop()}
-                </span>
+                <FileText className="w-4 h-4 text-blue-500" />
+                <div>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Current document
+                  </span>
+                  <span className="text-xs text-gray-400 block">
+                    {eventData.supportingDocUrl.split('/').pop()}
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setExistingFile(null)}
-                className="text-sm text-red-500 hover:text-red-600"
+                onClick={() => setRemoveFile(true)}
+                className="text-sm text-red-500 hover:text-red-600 font-medium"
               >
                 Remove
               </button>
             </div>
           )}
 
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+          {removeFile && eventData.supportingDocUrl && (
+            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <X className="w-4 h-4 text-yellow-500" />
+                <span className="text-sm text-gray-600 dark:text-gray-300">
+                  Current document will be removed
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRemoveFile(false)}
+                className="text-sm text-brand-500 hover:text-brand-600 font-medium"
+              >
+                Undo
+              </button>
+            </div>
+          )}
+
+          <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+            file ? 'border-green-500 bg-green-50 dark:bg-green-500/10' : 'border-gray-300 dark:border-gray-700'
+          }`}>
             <input
               type="file"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                const selectedFile = e.target.files?.[0];
+                if (selectedFile) {
+                  if (selectedFile.size > 5 * 1024 * 1024) {
+                    toast.error('File size should be less than 5MB');
+                    return;
+                  }
+                  setFile(selectedFile);
+                }
+              }}
               className="hidden"
               id="document"
               accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
             />
             <label htmlFor="document" className="cursor-pointer block">
-              <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <Upload className={`w-12 h-12 mx-auto mb-3 ${
+                file ? 'text-green-500' : 'text-gray-400'
+              }`} />
               <p className="text-gray-600 dark:text-gray-300">
                 {file ? file.name : 'Click to upload new document'}
               </p>
@@ -468,7 +585,7 @@ const EditEvent: React.FC = () => {
         <div className="flex gap-3">
           <Link
             to={`/treasurer/events/${id}`}
-            className="flex-1 rounded-lg border border-gray-300 px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 text-center dark:border-gray-700 dark:text-gray-300"
+            className="flex-1 rounded-lg border border-gray-300 px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 text-center dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
           >
             Cancel
           </Link>

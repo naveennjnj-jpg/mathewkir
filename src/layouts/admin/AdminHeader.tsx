@@ -105,29 +105,27 @@ const AdminHeader = ({
         });
 
         if (response.data.success && response.data.data) {
-          const data = response.data.data;
+          const data = response.data.data.user;
 
-          // Generate initials from name
-          const nameParts = data.name?.split(' ') || ['A'];
+          const nameParts = (data.full_name || "Admin").split(" ");
           const initials = nameParts
             .map((part: string) => part.charAt(0).toUpperCase())
-            .join('')
+            .join("")
             .slice(0, 2);
 
           setUserData({
-            id: data.id || data._id,
-            name: data.name || 'Admin',
-            email: data.email || 'admin@email.com',
-            role: data.role || 'admin',
-            avatar: data.avatar || data.profileImage,
-            theme: data.theme || 'light',
-            initials: initials || 'A'
+            id: data.user_id,
+            name: data.full_name,
+            email: data.email,
+            role: data.role,
+            avatar: data.profileImage || "",
+            theme: data.theme || "light",
+            initials,
           });
 
-          // Apply theme if needed
           if (data.theme) {
-            localStorage.setItem('theme', data.theme);
-            setIsDarkMode(data.theme === 'dark');
+            localStorage.setItem("theme", data.theme);
+            setIsDarkMode(data.theme === "dark");
           }
         }
       } catch (error) {
@@ -258,9 +256,8 @@ const AdminHeader = ({
           <div className="flex w-full items-center justify-between gap-2 border-b border-gray-200 px-3 py-3 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4 dark:border-gray-800">
             {/* Hamburger Toggle BTN */}
             <button
-              className={`z-99999 flex h-10 w-10 items-center justify-center rounded-lg border-gray-200 text-gray-500 lg:h-11 lg:w-11 lg:border dark:border-gray-800 dark:text-gray-400 ${
-                isSidebarOpen ? 'lg:bg-transparent dark:lg:bg-transparent bg-gray-100 dark:bg-gray-800' : ''
-              }`}
+              className={`z-99999 flex h-10 w-10 items-center justify-center rounded-lg border-gray-200 text-gray-500 lg:h-11 lg:w-11 lg:border dark:border-gray-800 dark:text-gray-400 ${isSidebarOpen ? 'lg:bg-transparent dark:lg:bg-transparent bg-gray-100 dark:bg-gray-800' : ''
+                }`}
               onClick={onMenuClick}
             >
               <svg
@@ -325,9 +322,8 @@ const AdminHeader = ({
 
             {/* Application nav menu button */}
             <button
-              className={`z-99999 flex h-10 w-10 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 lg:hidden dark:text-gray-400 dark:hover:bg-gray-800 ${
-                isMenuToggle ? 'bg-gray-100 dark:bg-gray-800' : ''
-              }`}
+              className={`z-99999 flex h-10 w-10 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 lg:hidden dark:text-gray-400 dark:hover:bg-gray-800 ${isMenuToggle ? 'bg-gray-100 dark:bg-gray-800' : ''
+                }`}
               onClick={() => setIsMenuToggle(!isMenuToggle)}
             >
               <svg
@@ -388,9 +384,8 @@ const AdminHeader = ({
           </div>
 
           <div
-            className={`${
-              isMenuToggle ? 'flex' : 'hidden'
-            } shadow-theme-md w-full items-center justify-between gap-4 px-5 py-4 lg:flex lg:justify-end lg:px-0 lg:shadow-none`}
+            className={`${isMenuToggle ? 'flex' : 'hidden'
+              } shadow-theme-md w-full items-center justify-between gap-4 px-5 py-4 lg:flex lg:justify-end lg:px-0 lg:shadow-none`}
           >
             <div className="2xsm:gap-3 flex items-center gap-2">
               {/* Dark Mode Toggler */}
@@ -560,8 +555,11 @@ const AdminHeader = ({
                   )}
                 </span>
 
+
                 <span className="text-theme-sm mr-1 block font-medium">
-                  {loading ? 'Loading...' : userData.name.split(' ')[0]}
+                  {loading
+                    ? "Loading..."
+                    : (userData.name || "User").split(" ")[0]}
                 </span>
 
                 <svg
@@ -595,30 +593,7 @@ const AdminHeader = ({
                   </div>
 
                   <ul className="flex flex-col gap-1 border-b border-gray-200 pt-4 pb-3 dark:border-gray-800">
-                    <li>
-                      <Link
-                        to="/admin/profile"
-                        className="group text-theme-sm flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <svg
-                          className="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                            d="M12 3.5C7.30558 3.5 3.5 7.30558 3.5 12C3.5 14.1526 4.3002 16.1184 5.61936 17.616C6.17279 15.3096 8.24852 13.5955 10.7246 13.5955H13.2746C15.7509 13.5955 17.8268 15.31 18.38 17.6167C19.6996 16.119 20.5 14.153 20.5 12C20.5 7.30558 16.6944 3.5 12 3.5ZM17.0246 18.8566V18.8455C17.0246 16.7744 15.3457 15.0955 13.2746 15.0955H10.7246C8.65354 15.0955 6.97461 16.7744 6.97461 18.8455V18.856C8.38223 19.8895 10.1198 20.5 12 20.5C13.8798 20.5 15.6171 19.8898 17.0246 18.8566ZM2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12ZM11.9991 7.25C10.8847 7.25 9.98126 8.15342 9.98126 9.26784C9.98126 10.3823 10.8847 11.2857 11.9991 11.2857C13.1135 11.2857 14.0169 10.3823 14.0169 9.26784C14.0169 8.15342 13.1135 7.25 11.9991 7.25ZM8.48126 9.26784C8.48126 7.32499 10.0563 5.75 11.9991 5.75C13.9419 5.75 15.5169 7.32499 15.5169 9.26784C15.5169 11.2107 13.9419 12.7857 11.9991 12.7857C10.0563 12.7857 8.48126 11.2107 8.48126 9.26784Z"
-                            fill="currentColor"
-                          />
-                        </svg>
-                        Edit profile
-                      </Link>
-                    </li>
+
                     <li>
                       <Link
                         to="/admin/settings"
@@ -643,30 +618,7 @@ const AdminHeader = ({
                         Account settings
                       </Link>
                     </li>
-                    <li>
-                      <Link
-                        to="/admin/support"
-                        className="group text-theme-sm flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        <svg
-                          className="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                            d="M3.5 12C3.5 7.30558 7.30558 3.5 12 3.5C16.6944 3.5 20.5 7.30558 20.5 12C20.5 16.6944 16.6944 20.5 12 20.5C7.30558 20.5 3.5 16.6944 3.5 12ZM12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2ZM11.0991 7.52507C11.0991 8.02213 11.5021 8.42507 11.9991 8.42507H12.0001C12.4972 8.42507 12.9001 8.02213 12.9001 7.52507C12.9001 7.02802 12.4972 6.62507 12.0001 6.62507H11.9991C11.5021 6.62507 11.0991 7.02802 11.0991 7.52507ZM12.0001 17.3714C11.5859 17.3714 11.2501 17.0356 11.2501 16.6214V10.9449C11.2501 10.5307 11.5859 10.1949 12.0001 10.1949C12.4143 10.1949 12.7501 10.5307 12.7501 10.9449V16.6214C12.7501 17.0356 12.4143 17.3714 12.0001 17.3714Z"
-                            fill="currentColor"
-                          />
-                        </svg>
-                        Support
-                      </Link>
-                    </li>
+
                   </ul>
                   <button
                     onClick={() => {
@@ -704,17 +656,17 @@ const AdminHeader = ({
       {/* Logout Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#0E0909] border border-white/5 rounded-2xl p-7 w-full max-w-sm shadow-xl">
-            <h3 className="font-semibold text-white text-lg mb-2">
+          <div className="bg-white dark:bg-[#0E0909] border border-gray-200 dark:border-white/5 rounded-2xl p-7 w-full max-w-sm shadow-xl">
+            <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-2">
               Sign out?
             </h3>
-            <p className="text-white/40 text-sm mb-6">
+            <p className="text-gray-500 dark:text-white/40 text-sm mb-6">
               You'll need to sign in again to access your workspace.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowLogoutModal(false)}
-                className="flex-1 border border-white/10 rounded-xl py-2.5 text-sm font-medium text-white/60 hover:bg-white/5 transition-colors"
+                className="flex-1 border border-gray-300 dark:border-white/10 rounded-xl py-2.5 text-sm font-medium text-gray-600 dark:text-white/60 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
               >
                 Cancel
               </button>
@@ -723,7 +675,7 @@ const AdminHeader = ({
                   setShowLogoutModal(false);
                   await handleLogout();
                 }}
-                className="flex-1 bg-gradient-to-r from-[#C9A227] to-[#DFBA3A] text-[#050505] rounded-xl py-2.5 text-sm font-semibold transition-all hover:shadow-lg hover:shadow-[#C9A227]/25"
+                className="flex-1 bg-brand-500 hover:bg-brand-600 text-white rounded-xl py-2.5 text-sm font-semibold transition-all hover:shadow-lg hover:shadow-brand-500/25"
               >
                 Sign out
               </button>

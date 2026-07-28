@@ -55,8 +55,9 @@ const TreasurerSidebar = ({
     { title: "Payment Verification", path: "/treasurer/payments/verify", icon: CheckCircle },
     { title: "Payout Records", path: "/treasurer/payouts", icon: Wallet },
     { title: "Reports", path: "/treasurer/reports", icon: FileBarChart },
-    { title: "Notifications Settings", path: "/treasurer/notifications", icon: Bell },
-    { title: "Audit Log", path: "/treasurer/audit", icon: History }
+    // { title: "Notifications Settings", path: "/treasurer/notifications", icon: Bell },
+    { title: "Audit Log", path: "/treasurer/audit", icon: History },
+    { title: "Settings", path: "/treasurer/settings", icon: Settings },
   ];
 
   return (
@@ -76,22 +77,22 @@ const TreasurerSidebar = ({
             !isOpen ? 'justify-center' : 'justify-between'
           }`}
         >
-          <a href="/super-admin">
+          <a href="treasurer">
             <span className={`logo ${!isOpen ? 'hidden' : ''}`}>
               <img 
                 className="dark:hidden" 
-                src="/images/logo/logo.svg" 
+                src="/src/assets/home/darklogo.png" 
                 alt="Logo" 
               />
               <img
                 className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
+                src="/src/assets/home/darklogo.png"
                 alt="Logo"
               />
             </span>
             <img
               className={`logo-icon ${isOpen ? 'hidden' : 'lg:block'}`}
-              src="/images/logo/logo-icon.svg"
+              src="/src/assets/images/logo/logo-icon.svg"
               alt="Logo"
             />
           </a>

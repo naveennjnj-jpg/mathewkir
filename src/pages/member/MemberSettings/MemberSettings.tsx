@@ -30,7 +30,7 @@ interface PlatformSettings {
   updated_by: string | null;
 }
 
-const AdminSettings: React.FC = () => {
+const TreasurerSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -182,18 +182,13 @@ const handleSaveGeneralSettings = async () => {
       }
     );
 
-    if (response.data.success) {
-      setSettings(response.data.data);
-      setFormData(response.data.data);
-      setSaveSuccess(true);
-      setLogoFile(null);
+if (response.data.success) {
+  toast.success("Settings saved successfully!");
 
-      toast.success("Settings saved successfully!");
-
-      setTimeout(() => {
-        setSaveSuccess(false);
-      }, 3000);
-    } else {
+  setTimeout(() => {
+    window.location.reload();
+  }, 1000); // Refresh after 1 second so the toast is visible
+}else {
       const message = response.data.message || "Failed to save settings";
       setError(message);
       toast.error(message);
@@ -626,4 +621,4 @@ const handleSaveGeneralSettings = async () => {
   );
 };
 
-export default AdminSettings;
+export default TreasurerSettings;

@@ -21,44 +21,50 @@ const Login: React.FC = () => {
   const [tenantData, setTenantData] = useState<TenantData | null>(null);
   const [tenantLoading, setTenantLoading] = useState<boolean>(true);
 
-  // Detect tenant from subdomain
   useEffect(() => {
     const detectTenant = async () => {
+      const hostname = window.location.hostname;
+      const parts = hostname.split(".");
+
+      let subdomain = "";
+
+      // Development: infotech.localhost
+      if (hostname.endsWith(".localhost")) {
+        subdomain = parts[0];
+      }
+      // Production: tenant.example.com
+      else if (parts.length > 2) {
+        subdomain = parts[0];
+      }
+
+      // No subdomain (localhost or example.com)
+      if (!subdomain || subdomain === "www") {
+        setTenantLoading(false);
+        return;
+      }
+
       try {
-        // Get subdomain from current URL
-        const hostname = window.location.hostname;
-        const subdomain = hostname.split('.')[0];
-
-        // If subdomain is 'localhost' or 'www' or empty, use default
-        const isLocalhost = ['localhost', 'www', ''].includes(subdomain);
-        const tenantSubdomain = isLocalhost ? 'default' : subdomain;
-
-        // Call API to get tenant details
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/tenants/${tenantSubdomain}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/tenants/${subdomain}`
+        );
 
         if (response.ok) {
           const data = await response.json();
           setTenantData(data.data);
         } else {
-          // Fallback to default tenant
           setTenantData({
-            name: 'Benevolent Fund Management Platform',
+            name: "Benevolent Fund Management Platform",
             logo: Logo,
-            subdomain: 'default'
+            subdomain: "default",
           });
         }
       } catch (error) {
-        console.error('Failed to fetch tenant:', error);
-        // Fallback to default tenant
+        console.error("Failed to fetch tenant:", error);
+
         setTenantData({
-          name: 'MyApp',
+          name: "Benevolent Fund Management Platform",
           logo: Logo,
-          subdomain: 'default'
+          subdomain: "default",
         });
       } finally {
         setTenantLoading(false);
@@ -79,7 +85,7 @@ const Login: React.FC = () => {
     if (result.success) {
       const userRole = result.data?.data?.role;
 
-      console.log("userRole",userRole)
+      console.log("userRole", userRole)
 
       // Redirect based on role
       switch (userRole) {

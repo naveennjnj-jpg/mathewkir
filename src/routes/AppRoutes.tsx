@@ -29,6 +29,7 @@ import EventsList from '@/pages/treasurer/EventDetails/EventsList';
 import EventDetails from '@/pages/treasurer/EventDetails/EventDetails';
 import CreateEvent from '@/pages/treasurer/CreateEvent/CreateEvent';
 import EditEvent from '@/pages/treasurer/EventDetails/EditEvent';
+import TreasurerSettings from '@/pages/treasurer/TreasurerSettings/TreasurerSettings';
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -38,6 +39,16 @@ import AuditLogs from '@/pages/admin/AuditLogs/AuditLogs';
 import UserManagement from '@/pages/admin/UserManagement/UserManagement';
 import AdminSettings from '@/pages/admin/AdminSettings/AdminSettings';
 import AdminAnalytics from '@/pages/admin/AdminAnalytics/AdminAnalytics';
+
+
+
+// Member Pages
+import MemberDashboard from "@/pages/member/Dashboard";
+import MemberSettings from '@/pages/member/MemberSettings/MemberSettings';
+import Contributions from '@/pages/member/Contributions/Contributions';
+import PaymentSubmission from '@/pages/member/PaymentSubmission/PaymentSubmission';
+import Beneficiaries from '@/pages/member/Beneficiaries/Beneficiaries';
+
 
 const AppRoutes = () => {
   return (
@@ -49,16 +60,6 @@ const AppRoutes = () => {
         <Route path="/onboarding" element={<CreateAccount />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-      </Route>
-
-      {/* MEMBER - Protected (Member Only) */}
-      <Route path="/member" element={
-        <ProtectedRoute memberOnly={true}>
-          <MemberLayout />
-        </ProtectedRoute>
-      }>
-        <Route index element={<UserDashboard />} />
-        <Route path="dashboard" element={<UserDashboard />} />
       </Route>
 
       {/* TREASURER - Protected (Treasurer Only) */}
@@ -79,6 +80,7 @@ const AppRoutes = () => {
         <Route path="reports" element={<Reports />} />
         <Route path="notifications" element={<NotificationsSettings />} />
         <Route path="audit" element={<AuditLog />} />
+        <Route path="settings" element={<TreasurerSettings />} />
       </Route>
 
       {/* ADMIN - Protected (Admin Only) */}
@@ -96,6 +98,23 @@ const AppRoutes = () => {
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="settings" element={<AdminSettings />} />
       </Route>
+
+
+      {/* Member - Protected (Treasurer Only) */}
+      <Route path="/member" element={
+        <ProtectedRoute memberOnly={true}>
+          <MemberLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<MemberDashboard />} />
+        <Route path="dashboard" element={<MemberDashboard />} />
+        <Route path="contributions" element={<Contributions />} />
+        <Route path="payments" element={<PaymentSubmission />} />
+        <Route path="beneficiaries" element={<Beneficiaries />} />
+        <Route path="settings" element={<MemberSettings />} />
+
+      </Route>
+
 
       {/* Catch all - redirect to login */}
       <Route path="*" element={<Navigate to="/login" replace />} />
