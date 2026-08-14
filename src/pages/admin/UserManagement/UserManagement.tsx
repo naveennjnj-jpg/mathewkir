@@ -19,10 +19,14 @@ import {
   Clock,
   RefreshCw,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  DollarSign,
+  Crown
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useNavigate } from "react-router-dom";
+
 
 // Types
 interface User {
@@ -30,7 +34,7 @@ interface User {
   name: string;
   email: string;
   phone?: string;
-  role: string;
+  role: 'member' | 'treasurer' | 'admin'; // admin = super admin
   tenant: string;
   tenantId: string | null;
   tenantStatus: string | null;
@@ -74,18 +78,18 @@ const UserManagement: React.FC = () => {
   // State
   const [users, setUsers] = useState<User[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [roles, setRoles] = useState<string[]>([]);
+  const [roles, setRoles] = useState<string[]>(['member', 'treasurer', 'admin']);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
-  
+  const navigate = useNavigate();
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [tenantFilter, setTenantFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -98,12 +102,12 @@ const UserManagement: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  
+
   // Form states
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    role: 'user',
+    role: 'member', // Default role
     tenantId: '',
     password: ''
   });
@@ -141,11 +145,11 @@ const UserManagement: React.FC = () => {
         setUsers(response.data.data);
         setTotalPages(response.data.pagination.totalPages);
         setTotalUsers(response.data.pagination.total);
-        
+
         // Set filters
         if (response.data.filters) {
           setTenants(response.data.filters.tenants || []);
-          setRoles(response.data.filters.roles || []);
+          setRoles(['member', 'treasurer', 'admin']);
         }
       } else {
         setError(response.data.message || 'Failed to fetch users');
@@ -185,7 +189,7 @@ const UserManagement: React.FC = () => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
-    
+
     try {
       const response = await axios.post(
         `${API_URL}/api/admin/createuser`,
@@ -200,7 +204,7 @@ const UserManagement: React.FC = () => {
       if (response.data.success) {
         toast.success(response.data.message);
         setShowAddModal(false);
-        setFormData({ fullName: '', email: '', role: 'user', tenantId: '', password: '' });
+        setFormData({ fullName: '', email: '', role: 'member', tenantId: '', password: '' });
         fetchUsers(currentPage);
         fetchUserStats();
       }
@@ -216,7 +220,7 @@ const UserManagement: React.FC = () => {
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
-    
+
     try {
       const response = await axios.put(
         `${API_URL}/api/admin/updateuser/${selectedUser?.id}`,
@@ -246,7 +250,7 @@ const UserManagement: React.FC = () => {
   // Delete user
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
-    
+
     try {
       const response = await axios.delete(
         `${API_URL}/api/admin/deleteuser/${selectedUser.id}`,
@@ -316,7 +320,7 @@ const UserManagement: React.FC = () => {
     setFormData({
       fullName: '',
       email: '',
-      role: 'user',
+      role: 'member',
       tenantId: '',
       password: ''
     });
@@ -335,7 +339,7 @@ const UserManagement: React.FC = () => {
       status: 'active',
       joinedDate: new Date('2026-01-15'),
       lastActive: new Date('2026-01-20T14:30:00'),
-      isSuperAdmin: false,
+      isSuperAdmin: true,
       stats: {
         memberships: 1,
         verifiedContributions: 5,
@@ -349,7 +353,7 @@ const UserManagement: React.FC = () => {
       id: '2',
       name: 'Sarah Smith',
       email: 'sarah@greenleaf.com',
-      role: 'admin',
+      role: 'treasurer',
       tenant: 'GreenLeaf Industries',
       tenantId: '2',
       tenantStatus: 'active',
@@ -370,7 +374,7 @@ const UserManagement: React.FC = () => {
       id: '3',
       name: 'Mike Johnson',
       email: 'mike@innovate.com',
-      role: 'user',
+      role: 'member',
       tenant: 'InnovateWorks',
       tenantId: '3',
       tenantStatus: 'active',
@@ -391,7 +395,7 @@ const UserManagement: React.FC = () => {
       id: '4',
       name: 'Emma Davis',
       email: 'emma@primeedge.com',
-      role: 'admin',
+      role: 'member',
       tenant: 'PrimeEdge Solutions',
       tenantId: '4',
       tenantStatus: 'active',
@@ -412,7 +416,7 @@ const UserManagement: React.FC = () => {
       id: '5',
       name: 'David Brown',
       email: 'david@apex.com',
-      role: 'user',
+      role: 'member',
       tenant: 'Apex Global',
       tenantId: '5',
       tenantStatus: 'active',
@@ -433,7 +437,7 @@ const UserManagement: React.FC = () => {
       id: '6',
       name: 'Super Admin',
       email: 'superadmin@system.com',
-      role: 'superadmin',
+      role: 'admin',
       tenant: 'System',
       tenantId: null,
       tenantStatus: null,
@@ -461,14 +465,38 @@ const UserManagement: React.FC = () => {
     { id: '5', name: 'Apex Global', subdomain: 'apex' },
   ];
 
-  // Get role badge
+  // Get role badge with correct styling
   const getRoleBadge = (role: string) => {
     const styles = {
-      superadmin: 'bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400',
-      admin: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
-      user: 'bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400'
+      admin: 'bg-purple-50 text-purple-600 dark:bg-purple-500/15 dark:text-purple-400',
+      treasurer: 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-400',
+      member: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400'
     };
-    return styles[role as keyof typeof styles] || styles.user;
+    return styles[role as keyof typeof styles] || styles.member;
+  };
+
+  // Get role icon
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return <Crown className="w-3 h-3" />;
+      case 'treasurer':
+        return <DollarSign className="w-3 h-3" />;
+      default:
+        return <Shield className="w-3 h-3" />;
+    }
+  };
+
+  // Get role display name
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'Admin';
+      case 'treasurer':
+        return 'Treasurer';
+      default:
+        return 'Member';
+    }
   };
 
   // Get status badge
@@ -529,7 +557,7 @@ const UserManagement: React.FC = () => {
       setTenants(getMockTenants());
     }
     if (roles.length === 0) {
-      setRoles(['superadmin', 'admin', 'user']);
+      setRoles(['member', 'treasurer', 'admin']);
     }
   }, []);
 
@@ -575,7 +603,7 @@ const UserManagement: React.FC = () => {
                   <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                   Refresh
                 </button>
-                <button
+                {/* <button
                   onClick={() => {
                     resetForm();
                     setShowAddModal(true);
@@ -583,14 +611,21 @@ const UserManagement: React.FC = () => {
                   className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
                 >
                   <UserPlus className="w-4 h-4" />
-                  Add New User
+                  Add New Tenant
+                </button> */}
+                <button
+                  onClick={() => navigate("/admin/tenants")}
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add New Tenant
                 </button>
               </div>
             </div>
 
             {/* Stats Cards */}
             {userStats && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6 mb-6">
+             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 mb-6">
                 <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Total Users</p>
                   <p className="text-xl font-bold text-gray-800 dark:text-white/90">{userStats.totalUsers}</p>
@@ -603,18 +638,18 @@ const UserManagement: React.FC = () => {
                   <p className="text-sm text-gray-500 dark:text-gray-400">Pending</p>
                   <p className="text-xl font-bold text-yellow-600 dark:text-yellow-500">{userStats.pendingUsers}</p>
                 </div>
-                <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Super Admins</p>
+                {/* <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Admins</p>
                   <p className="text-xl font-bold text-purple-600 dark:text-purple-500">{userStats.superAdmins}</p>
-                </div>
+                </div> */}
                 <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Inactive</p>
                   <p className="text-xl font-bold text-gray-600 dark:text-gray-400">{userStats.inactiveUsers}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Admins</p>
-                  <p className="text-xl font-bold text-blue-600 dark:text-blue-500">
-                    {userStats.roleDistribution?.find(r => r.role === 'admin')?.count || 0}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Treasurers</p>
+                  <p className="text-xl font-bold text-green-600 dark:text-green-500">
+                    {userStats.roleDistribution?.find(r => r.role === 'treasurer')?.count || 0}
                   </p>
                 </div>
               </div>
@@ -657,7 +692,7 @@ const UserManagement: React.FC = () => {
                   <option value="all">All Roles</option>
                   {roles.map((role) => (
                     <option key={role} value={role}>
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                      {getRoleDisplayName(role)}
                     </option>
                   ))}
                 </select>
@@ -700,7 +735,7 @@ const UserManagement: React.FC = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tenant</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Joined</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Last Active</th>
+                      {/* <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Last Active</th> */}
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
@@ -731,8 +766,8 @@ const UserManagement: React.FC = () => {
                           </td>
                           <td className="px-4 py-3">
                             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${getRoleBadge(user.role)}`}>
-                              <Shield className="w-3 h-3" />
-                              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                              {getRoleIcon(user.role)}
+                              {getRoleDisplayName(user.role)}
                             </span>
                           </td>
                           <td className="px-4 py-3">
@@ -747,9 +782,9 @@ const UserManagement: React.FC = () => {
                           <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                             {formatDate(user.joinedDate)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                          {/* <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                             {formatDateTime(user.lastActive)}
-                          </td>
+                          </td> */}
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button
@@ -759,13 +794,13 @@ const UserManagement: React.FC = () => {
                               >
                                 <Eye className="w-4 h-4 text-gray-400 hover:text-gray-600" />
                               </button>
-                              <button
+                              {/* <button
                                 onClick={() => handleEditUser(user)}
                                 className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
                                 title="Edit user"
                               >
                                 <Edit2 className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                              </button>
+                              </button> */}
                               <button
                                 onClick={() => handleDeleteClick(user)}
                                 className="p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
@@ -818,11 +853,11 @@ const UserManagement: React.FC = () => {
           <div className="bg-white dark:bg-[#0E0909] border border-gray-200 dark:border-white/5 rounded-2xl p-7 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Add New User</h3>
-              <button 
+              <button
                 onClick={() => {
                   setShowAddModal(false);
                   resetForm();
-                }} 
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
@@ -871,21 +906,22 @@ const UserManagement: React.FC = () => {
                   className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:text-white/90"
                   required
                 >
-                  <option value="user">User</option>
+                  <option value="member">Member</option>
+                  <option value="treasurer">Treasurer</option>
                   <option value="admin">Admin</option>
-                  <option value="superadmin">Super Admin</option>
                 </select>
               </div>
 
-              {formData.role !== 'superadmin' && (
+              {formData.role !== 'admin' && (
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                    Tenant
+                    Tenant <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.tenantId}
                     onChange={(e) => setFormData({ ...formData, tenantId: e.target.value })}
                     className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:text-white/90"
+                    required
                   >
                     <option value="">Select Tenant</option>
                     {tenants.map((tenant) => (
@@ -936,17 +972,17 @@ const UserManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Edit User Modal */}
+      {/* Edit User Modal - Similar to Add but with update logic */}
       {showEditModal && selectedUser && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-[#0E0909] border border-gray-200 dark:border-white/5 rounded-2xl p-7 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Edit User</h3>
-              <button 
+              <button
                 onClick={() => {
                   setShowEditModal(false);
                   setSelectedUser(null);
-                }} 
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
@@ -994,22 +1030,24 @@ const UserManagement: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:text-white/90"
                   required
+                  disabled={selectedUser?.isSuperAdmin}
                 >
-                  <option value="user">User</option>
+                  <option value="member">Member</option>
+                  <option value="treasurer">Treasurer</option>
                   <option value="admin">Admin</option>
-                  <option value="superadmin">Super Admin</option>
                 </select>
               </div>
 
-              {formData.role !== 'superadmin' && (
+              {formData.role !== 'admin' && (
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                    Tenant
+                    Tenant <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.tenantId}
                     onChange={(e) => setFormData({ ...formData, tenantId: e.target.value })}
                     className="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:text-white/90"
+                    required
                   >
                     <option value="">Select Tenant</option>
                     {tenants.map((tenant) => (
@@ -1060,17 +1098,18 @@ const UserManagement: React.FC = () => {
         </div>
       )}
 
-      {/* View User Modal */}
+      {/* View User Modal - Keep as is */}
       {showViewModal && selectedUser && (
+        // ... (keep existing view modal code)
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-[#0E0909] border border-gray-200 dark:border-white/5 rounded-2xl p-7 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white">User Details</h3>
-              <button 
+              <button
                 onClick={() => {
                   setShowViewModal(false);
                   setSelectedUser(null);
-                }} 
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
@@ -1090,8 +1129,8 @@ const UserManagement: React.FC = () => {
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Role</p>
                   <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${getRoleBadge(selectedUser.role)}`}>
-                    <Shield className="w-3 h-3" />
-                    {selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1)}
+                    {getRoleIcon(selectedUser.role)}
+                    {getRoleDisplayName(selectedUser.role)}
                   </span>
                 </div>
                 <div>
@@ -1166,11 +1205,11 @@ const UserManagement: React.FC = () => {
           <div className="bg-white dark:bg-[#0E0909] border border-gray-200 dark:border-white/5 rounded-2xl p-7 w-full max-w-md">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Delete User</h3>
-              <button 
+              <button
                 onClick={() => {
                   setShowDeleteModal(false);
                   setSelectedUser(null);
-                }} 
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />

@@ -23,7 +23,7 @@ import MembersManagement from "@/pages/treasurer/MembersManagement/MembersManage
 import PaymentVerification from "@/pages/treasurer/PaymentVerification/PaymentVerification";
 import PayoutRecords from "@/pages/treasurer/PayoutRecords/PayoutRecords";
 import Reports from "@/pages/treasurer/Reports/Reports";
-import NotificationsSettings from "@/pages/treasurer/NotificationsSettings/NotificationsSettings";
+import NotificationsSettings from "@/pages/treasurer/Notifications/Notifications";
 import AuditLog from "@/pages/treasurer/AuditLog/AuditLog";
 import EventsList from '@/pages/treasurer/EventDetails/EventsList';
 import EventDetails from '@/pages/treasurer/EventDetails/EventDetails';
@@ -39,7 +39,7 @@ import AuditLogs from '@/pages/admin/AuditLogs/AuditLogs';
 import UserManagement from '@/pages/admin/UserManagement/UserManagement';
 import AdminSettings from '@/pages/admin/AdminSettings/AdminSettings';
 import AdminAnalytics from '@/pages/admin/AdminAnalytics/AdminAnalytics';
-
+import Notifications from '@/pages/admin/Notifications/Notifications';
 
 
 // Member Pages
@@ -48,7 +48,7 @@ import MemberSettings from '@/pages/member/MemberSettings/MemberSettings';
 import Contributions from '@/pages/member/Contributions/Contributions';
 import PaymentSubmission from '@/pages/member/PaymentSubmission/PaymentSubmission';
 import Beneficiaries from '@/pages/member/Beneficiaries/Beneficiaries';
-
+import MemberNotifications from '@/pages/admin/Notifications/Notifications';
 
 const AppRoutes = () => {
   return (
@@ -97,6 +97,7 @@ const AppRoutes = () => {
         <Route path="users" element={<UserManagement />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="settings" element={<AdminSettings />} />
+         <Route path="notifications" element={<Notifications />} />
       </Route>
 
 
@@ -112,6 +113,7 @@ const AppRoutes = () => {
         <Route path="payments" element={<PaymentSubmission />} />
         <Route path="beneficiaries" element={<Beneficiaries />} />
         <Route path="settings" element={<MemberSettings />} />
+        <Route path="notifications" element={<MemberNotifications />} />
 
       </Route>
 

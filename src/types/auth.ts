@@ -7,6 +7,8 @@ export interface User {
   role: "admin" | "treasurer" | "member";
   is_super_admin: boolean;
   created_at: string;
+  tenant_id?: string;
+  tenant_subdomain?: string;
 }
 
 export interface Membership {
@@ -35,9 +37,22 @@ export interface AuthResponse {
   message?: string;
 }
 
+export interface AuthResponseLogin {
+  success: boolean;
+  token?: string;
+  message?: string;
+  data: {
+    user: User;
+    role: string;
+    tenants: any[];
+    currentTenant: any | null;
+  };
+}
+
 export interface LoginCredentials {
   email: string;
   password: string;
+  subdomain?: string; // Add subdomain to login credentials
 }
 
 export interface RegisterData {
@@ -59,7 +74,7 @@ export interface AuthContextType {
   error: string | null;
   isAuthenticated: boolean;
   register: (userData: RegisterData) => Promise<{ success: boolean; data?: AuthResponse; error?: string }>;
-  login: (email: string, password: string) => Promise<{ success: boolean; data?: AuthResponse; error?: string }>;
+  login: (email: string, password: string, subdomain?: string) => Promise<{ success: boolean; data?: AuthResponseLogin; error?: string }>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   updateDetails: (userData: Partial<User>) => Promise<{ success: boolean; data?: User; error?: string }>;

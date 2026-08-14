@@ -33,7 +33,7 @@ interface Transaction {
   date: Date;
   amount: number;
   type: 'collection' | 'payout';
-  status: 'completed' | 'pending' | 'failed';
+  status: 'completed' | 'pending' | 'failed' | 'approved';
   reference: string;
   description?: string;
   paymentMethod?: string;
@@ -59,73 +59,26 @@ interface Summary {
   totalPayoutCount: number;
 }
 
-interface TransactionDetail {
-  id: string;
-  type: 'collection' | 'payout';
-  amount: number;
-  status: string;
-  reference: string;
-  paymentMethod?: string;
-  paidAt?: string;
-  payoutDate?: string;
-  notes?: string;
-  createdAt: Date;
-  tenant: {
-    tenant_id: string;
-    name: string;
-    subdomain: string;
-    bank_account_ref?: string;
-  };
-  member?: {
-    user_id: string;
-    full_name: string;
-    email: string;
-    phone?: string;
-  };
-  beneficiary?: {
-    beneficiary_id: string;
-    name: string;
-    relationship?: string;
-    contact_info?: string;
-  };
-  event?: {
-    event_id: string;
-    purpose: string;
-    fixed_amount: number;
-    deadline: string;
-    status: string;
-  };
-  verifier?: {
-    full_name: string;
-    email: string;
-  };
-  recorder?: {
-    full_name: string;
-    email: string;
-  };
-}
-
 const TenantReconciliation: React.FC = () => {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingDetails, setLoadingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Filters
   const [selectedTenant, setSelectedTenant] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [dateRange, setDateRange] = useState('this-month');
+  const [dateRange, setDateRange] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
 
-  // Modal states
-  const [selectedTransaction, setSelectedTransaction] = useState<TransactionDetail | null>(null);
+  // Modal states - using the transaction data directly
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
 
   const token = localStorage.getItem("token");
@@ -162,48 +115,49 @@ const TenantReconciliation: React.FC = () => {
     }
 
     // Filter by date range
-    const now = new Date();
-    let startDate = new Date();
-    let endDate = new Date();
+    if (dateRange !== 'all') {
+      const now = new Date();
+      let startDate = new Date();
+      let endDate = new Date();
 
-    switch (dateRange) {
-      case 'today':
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      case 'this-week':
-        const day = now.getDay();
-        startDate.setDate(now.getDate() - day);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 6);
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      case 'this-month':
-        startDate.setDate(1);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      case 'last-month':
-        startDate.setMonth(now.getMonth() - 1);
-        startDate.setDate(1);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-        endDate.setHours(23, 59, 59, 999);
-        break;
-      default:
-        // this-month is default
-        startDate.setDate(1);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        endDate.setHours(23, 59, 59, 999);
+      switch (dateRange) {
+        case 'today':
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case 'this-week':
+          const day = now.getDay();
+          startDate.setDate(now.getDate() - day);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case 'this-month':
+          startDate.setDate(1);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case 'last-month':
+          startDate.setMonth(now.getMonth() - 1);
+          startDate.setDate(1);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        default:
+          startDate.setDate(1);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          endDate.setHours(23, 59, 59, 999);
+      }
+
+      filtered = filtered.filter(t => {
+        const date = new Date(t.date);
+        return date >= startDate && date <= endDate;
+      });
     }
-
-    filtered = filtered.filter(t => {
-      const date = new Date(t.date);
-      return date >= startDate && date <= endDate;
-    });
 
     // Sort by date (newest first)
     filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -214,7 +168,7 @@ const TenantReconciliation: React.FC = () => {
   // Calculate summary from filtered data
   const summary = useMemo(() => {
     const totalCollected = filteredTransactions
-      .filter(t => t.type === 'collection' && t.status === 'completed')
+      .filter(t => (t.type === 'collection' && (t.status === 'completed' || t.status === 'approved')))
       .reduce((sum, t) => sum + t.amount, 0);
     
     const totalPending = filteredTransactions
@@ -222,7 +176,7 @@ const TenantReconciliation: React.FC = () => {
       .reduce((sum, t) => sum + t.amount, 0);
     
     const totalPayouts = filteredTransactions
-      .filter(t => t.type === 'payout' && t.status === 'completed')
+      .filter(t => (t.type === 'payout' && (t.status === 'completed' || t.status === 'approved')))
       .reduce((sum, t) => sum + t.amount, 0);
     
     const totalContributions = filteredTransactions
@@ -233,8 +187,14 @@ const TenantReconciliation: React.FC = () => {
       .filter(t => t.type === 'payout')
       .length;
     
-    const collectionRate = totalCollected + totalPending > 0 
-      ? (totalCollected / (totalCollected + totalPending)) * 100 
+    const totalCompleted = filteredTransactions
+      .filter(t => t.status === 'completed' || t.status === 'approved')
+      .length;
+    
+    const totalAll = filteredTransactions.length;
+    
+    const collectionRate = totalAll > 0 
+      ? (totalCompleted / totalAll) * 100 
       : 0;
 
     return {
@@ -271,13 +231,55 @@ const TenantReconciliation: React.FC = () => {
         },
       });
 
+      console.log('API Response:', response.data);
+
       if (response.data.success) {
-        setAllTransactions(response.data.data.transactions || []);
-        setTenants(response.data.data.tenants || []);
+        const data = response.data.data;
+        
+        let transactions = [];
+        let tenants = [];
+
+        if (data && data.transactions && Array.isArray(data.transactions)) {
+          transactions = data.transactions.map((item: any) => ({
+            id: item.id || item._id || '',
+            tenantId: item.tenantId || item.tenant_id || item.tenant?.id || '',
+            tenantName: item.tenantName || item.tenant_name || item.tenant?.name || 'Unknown Tenant',
+            date: new Date(item.date || item.createdAt || item.created_at || new Date()),
+            amount: item.amount || item.total_amount || 0,
+            type: item.type || item.transaction_type || 'collection',
+            status: item.status || 'pending',
+            reference: item.reference || item.reference_number || 'N/A',
+            description: item.description || item.notes || '',
+            paymentMethod: item.paymentMethod || item.payment_method || '',
+            verifiedBy: item.verifiedBy || '',
+            verifierName: item.verifierName || '',
+            createdAt: new Date(item.createdAt || item.created_at || new Date())
+          }));
+        } else {
+          console.warn('No transactions found in response, using mock data');
+          transactions = getMockTransactions();
+        }
+
+        if (data && data.tenants && Array.isArray(data.tenants)) {
+          tenants = data.tenants.map((item: any) => ({
+            id: item.id || item._id || '',
+            name: item.name || item.tenant_name || 'Unknown Tenant',
+            subdomain: item.subdomain || item.sub_domain || ''
+          }));
+        } else {
+          tenants = getMockTenants();
+        }
+
+        console.log('Transformed Transactions:', transactions);
+        console.log('Transformed Tenants:', tenants);
+
+        setAllTransactions(transactions);
+        setTenants(tenants);
         setCurrentPage(1);
+        
+        toast.success(`Loaded ${transactions.length} transactions from ${tenants.length} tenants`);
       } else {
         setError(response.data.message || 'Failed to fetch transactions');
-        // Fallback to mock data
         setAllTransactions(getMockTransactions());
         setTenants(getMockTenants());
       }
@@ -290,36 +292,10 @@ const TenantReconciliation: React.FC = () => {
         setError(error.response?.data?.message || 'Failed to fetch transactions');
       }
       
-      // Fallback to mock data
       setAllTransactions(getMockTransactions());
       setTenants(getMockTenants());
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Fetch transaction details
-  const fetchTransactionDetails = async (id: string, type: string) => {
-    setLoadingDetails(true);
-    try {
-      const response = await axios.get(`${API_URL}/api/admin/reconciliation/transactions/${id}`, {
-        params: { type },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.data.success) {
-        setSelectedTransaction(response.data.data);
-        setShowTransactionModal(true);
-      } else {
-        toast.error('Failed to load transaction details');
-      }
-    } catch (error: any) {
-      console.error('Error fetching transaction details:', error);
-      toast.error(error.response?.data?.message || 'Failed to load transaction details');
-    } finally {
-      setLoadingDetails(false);
     }
   };
 
@@ -336,7 +312,7 @@ const TenantReconciliation: React.FC = () => {
     setSelectedTenant('all');
     setSelectedType('all');
     setSelectedStatus('all');
-    setDateRange('this-month');
+    setDateRange('all');
     setSearchTerm('');
     setCurrentPage(1);
     toast.success('Filters reset');
@@ -349,9 +325,10 @@ const TenantReconciliation: React.FC = () => {
     }
   };
 
-  // Handle view details
+  // Handle view details - using the transaction data directly
   const handleViewDetails = (transaction: Transaction) => {
-    fetchTransactionDetails(transaction.id, transaction.type);
+    setSelectedTransaction(transaction);
+    setShowTransactionModal(true);
   };
 
   // Mock data
@@ -365,7 +342,7 @@ const TenantReconciliation: React.FC = () => {
         date: new Date(now.setHours(now.getHours() - 2)),
         amount: 12500,
         type: 'collection',
-        status: 'completed',
+        status: 'approved',
         reference: 'INV-2026-001',
         description: 'Monthly membership fees - January 2026',
         paymentMethod: 'Bank Transfer',
@@ -403,7 +380,7 @@ const TenantReconciliation: React.FC = () => {
         date: new Date(now.setHours(now.getHours() - 12)),
         amount: 3200,
         type: 'collection',
-        status: 'completed',
+        status: 'approved',
         reference: 'INV-2026-004',
         description: 'Event ticket sales',
         paymentMethod: 'Cash',
@@ -429,7 +406,7 @@ const TenantReconciliation: React.FC = () => {
         date: new Date(now.setHours(now.getHours() - 24)),
         amount: 6400,
         type: 'payout',
-        status: 'completed',
+        status: 'approved',
         reference: 'PAY-2026-006',
         description: 'Beneficiary payout - Sarah Johnson',
         createdAt: new Date()
@@ -448,10 +425,15 @@ const TenantReconciliation: React.FC = () => {
   // Get status color
   const getStatusColor = (status: string) => {
     switch(status) {
-      case 'completed': return 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-500';
-      case 'pending': return 'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/15 dark:text-yellow-500';
-      case 'failed': return 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-500';
-      default: return 'bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-500';
+      case 'completed':
+      case 'approved':
+        return 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-500';
+      case 'pending':
+        return 'bg-yellow-50 text-yellow-600 dark:bg-yellow-500/15 dark:text-yellow-500';
+      case 'failed':
+        return 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-500';
+      default:
+        return 'bg-gray-50 text-gray-600 dark:bg-gray-500/15 dark:text-gray-500';
     }
   };
 
@@ -465,16 +447,19 @@ const TenantReconciliation: React.FC = () => {
 
   // Get status badge
   const getStatusBadge = (status: string) => {
-    const icons = {
+    const displayStatus = status === 'approved' ? 'completed' : status;
+    
+    const icons: Record<string, React.ReactNode> = {
       completed: <CheckCircle className="w-3 h-3" />,
+      approved: <CheckCircle className="w-3 h-3" />,
       pending: <Clock className="w-3 h-3" />,
       failed: <AlertCircle className="w-3 h-3" />
     };
 
     return (
       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(status)}`}>
-        {icons[status as keyof typeof icons]}
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {icons[displayStatus] || icons.pending}
+        {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
       </span>
     );
   };
@@ -689,6 +674,7 @@ const TenantReconciliation: React.FC = () => {
                     className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                   >
                     <option value="all">All Statuses</option>
+                    <option value="approved">Approved</option>
                     <option value="completed">Completed</option>
                     <option value="pending">Pending</option>
                     <option value="failed">Failed</option>
@@ -704,6 +690,7 @@ const TenantReconciliation: React.FC = () => {
                     onChange={(e) => setDateRange(e.target.value)}
                     className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                   >
+                    <option value="all">All Dates</option>
                     <option value="today">Today</option>
                     <option value="this-week">This Week</option>
                     <option value="this-month">This Month</option>
@@ -737,7 +724,7 @@ const TenantReconciliation: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-4 text-sm">
                   <span className="text-green-600 dark:text-green-400">
-                    ✓ {filteredTransactions.filter(t => t.status === 'completed').length}
+                    ✓ {filteredTransactions.filter(t => t.status === 'completed' || t.status === 'approved').length}
                   </span>
                   <span className="text-yellow-600 dark:text-yellow-400">
                     ⏳ {filteredTransactions.filter(t => t.status === 'pending').length}
@@ -855,7 +842,7 @@ const TenantReconciliation: React.FC = () => {
         </main>
       </div>
 
-      {/* Transaction Details Modal */}
+      {/* Transaction Details Modal - Using local data */}
       {showTransactionModal && selectedTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 dark:bg-gray-900">
@@ -866,139 +853,133 @@ const TenantReconciliation: React.FC = () => {
               <X className="w-5 h-5 text-gray-500" />
             </button>
 
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-white/90 mb-4">
-              Transaction Details
-            </h2>
-
-            {loadingDetails ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-brand-50 dark:bg-brand-500/15">
+                <FileText className="w-5 h-5 text-brand-600 dark:text-brand-400" />
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Type</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90 capitalize">
-                      {selectedTransaction.type}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90">
-                      {formatCurrency(selectedTransaction.amount)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
-                    {getStatusBadge(selectedTransaction.status)}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Reference</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90">
-                      {selectedTransaction.reference}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Tenant</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90">
-                      {selectedTransaction.tenant?.name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Date</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90">
-                      {formatTimestamp(selectedTransaction.createdAt)}
-                    </p>
-                  </div>
-                </div>
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white/90">
+                Transaction Details
+              </h2>
+              {/* <span className="ml-auto text-xs text-gray-400">
+                ID: {selectedTransaction.id}
+              </span> */}
+            </div>
 
-                {selectedTransaction.member && (
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Member</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90">
-                      {selectedTransaction.member.full_name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {selectedTransaction.member.email}
-                    </p>
-                  </div>
-                )}
-
-                {selectedTransaction.beneficiary && (
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Beneficiary</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90">
-                      {selectedTransaction.beneficiary.name}
-                    </p>
-                    {selectedTransaction.beneficiary.relationship && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {selectedTransaction.beneficiary.relationship}
-                      </p>
+            <div className="space-y-6">
+              {/* Status Banner */}
+              <div className={`p-4 rounded-lg border ${
+                selectedTransaction.status === 'approved' || selectedTransaction.status === 'completed'
+                  ? 'bg-green-50 border-green-200 dark:bg-green-500/10 dark:border-green-500/20'
+                  : selectedTransaction.status === 'pending'
+                  ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-500/10 dark:border-yellow-500/20'
+                  : 'bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/20'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {selectedTransaction.status === 'approved' || selectedTransaction.status === 'completed' ? (
+                      <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    ) : selectedTransaction.status === 'pending' ? (
+                      <Clock className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
                     )}
+                    <span className="font-medium text-gray-800 dark:text-white/90">
+                      Status: {getStatusBadge(selectedTransaction.status)}
+                    </span>
                   </div>
-                )}
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {formatTimestamp(selectedTransaction.date)}
+                  </span>
+                </div>
+              </div>
 
-                {selectedTransaction.event && (
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Event</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90">
-                      {selectedTransaction.event.purpose}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Amount: {formatCurrency(selectedTransaction.event.fixed_amount)}
-                    </p>
-                  </div>
-                )}
+              {/* Amount Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Amount</p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-white/90">
+                    {formatCurrency(selectedTransaction.amount)}
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Type</p>
+                  <p className="flex items-center gap-2 text-lg font-medium text-gray-800 dark:text-white/90 capitalize">
+                    {getTypeIcon(selectedTransaction.type)}
+                    {selectedTransaction.type}
+                  </p>
+                </div>
+              </div>
 
-                {selectedTransaction.verifier && (
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Verified By</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90">
-                      {selectedTransaction.verifier.full_name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {selectedTransaction.verifier.email}
-                    </p>
-                  </div>
-                )}
+              {/* Details Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Tenant</p>
+                  <p className="flex items-center gap-2 font-medium text-gray-800 dark:text-white/90">
+                    <Building2 className="w-4 h-4 text-gray-400" />
+                    {selectedTransaction.tenantName}
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Reference</p>
+                  <p className="font-medium text-gray-800 dark:text-white/90 font-mono">
+                    {selectedTransaction.reference}
+                  </p>
+                </div>
+              </div>
 
-                {selectedTransaction.recorder && (
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Recorded By</p>
+              {/* Additional Info */}
+              <div className="space-y-4">
+                {selectedTransaction.description && (
+                  <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Description</p>
                     <p className="font-medium text-gray-800 dark:text-white/90">
-                      {selectedTransaction.recorder.full_name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {selectedTransaction.recorder.email}
+                      {selectedTransaction.description}
                     </p>
                   </div>
                 )}
 
                 {selectedTransaction.paymentMethod && (
-                  <div>
+                  <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                     <p className="text-sm text-gray-500 dark:text-gray-400">Payment Method</p>
-                    <p className="font-medium text-gray-800 dark:text-white/90">
+                    <p className="font-medium text-gray-800 dark:text-white/90 capitalize">
                       {selectedTransaction.paymentMethod}
                     </p>
                   </div>
                 )}
 
-                {selectedTransaction.notes && (
-                  <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Notes</p>
-                    <p className="text-sm text-gray-800 dark:text-white/90">
-                      {selectedTransaction.notes}
+                {selectedTransaction.verifiedBy && (
+                  <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Verified By</p>
+                    <p className="font-medium text-gray-800 dark:text-white/90">
+                      {selectedTransaction.verifierName || selectedTransaction.verifiedBy}
                     </p>
                   </div>
                 )}
-              </div>
-            )}
 
-            <div className="mt-6 flex justify-end">
+                <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Created At</p>
+                  <p className="font-medium text-gray-800 dark:text-white/90">
+                    {formatTimestamp(selectedTransaction.createdAt)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowTransactionModal(false);
+                  // Optional: print functionality
+                  window.print();
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
+              >
+                <Printer className="w-4 h-4" />
+                Print
+              </button>
               <button
                 onClick={() => setShowTransactionModal(false)}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
+                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 dark:bg-brand-600 dark:hover:bg-brand-700"
               >
                 Close
               </button>

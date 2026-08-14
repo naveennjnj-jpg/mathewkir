@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import axios, { AxiosError } from 'axios';
-import { User, AuthResponse, RegisterData, AuthContextType, MeResponse } from '../types/auth';
+import { User, AuthResponse, AuthResponseLogin, RegisterData, AuthContextType, MeResponse } from '../types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -26,7 +26,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-
 
       if (!token) {
         setLoading(false);
@@ -73,16 +72,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; data?: AuthResponse; error?: string }> => {
+  // Updated login function with subdomain parameter
+  const login = async (
+    email: string,
+    password: string,
+    subdomain?: string // Made optional
+  ): Promise<{ success: boolean; data?: AuthResponseLogin; error?: string }> => {
     try {
       setLoading(true);
-      const response = await axios.post<AuthResponse>('/api/auth/login', { email, password });
-      setUser(response.data.data);
+
+      // Send subdomain in request body
+      const response = await axios.post<AuthResponseLogin>('/api/auth/login', {
+        email,
+        password,
+        subdomain // This will be undefined if not provided
+      });
+
+      const loginData = response.data.data;
+      const userData = loginData.user;
+
+      // Verify user belongs to the current tenant (if subdomain is provided)
+      if (subdomain && userData.tenant_subdomain && userData.tenant_subdomain !== subdomain) {
+        const errorMsg = `You don't have access to this organization. Please use your organization's subdomain.`;
+        setError(errorMsg);
+        setLoading(false);
+        return {
+          success: false,
+          error: errorMsg
+        };
+      }
+
+      setUser(userData);
       setIsAuthenticated(true);
       setError(null);
-      console.log('Login successful, user data:', response.data.data);
+      console.log('Login successful, user data:', userData);
+
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
+        // Store tenant info for later use
+        if (userData.tenant_subdomain) {
+          localStorage.setItem('tenant_subdomain', userData.tenant_subdomain);
+        }
+        if (userData.tenant_id) {
+          localStorage.setItem('tenant_id', userData.tenant_id);
+        }
       }
 
       return { success: true, data: response.data };
@@ -97,6 +130,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } catch {
           errorMessage = error.response.data.message;
         }
+      }
+
+      // Handle specific tenant mismatch error from backend
+      if (error.response?.status === 403) {
+        errorMessage = error.response?.data?.message || "You don't have access to this organization";
       }
 
       setError(errorMessage);
@@ -119,6 +157,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
       localStorage.removeItem('token');
+      localStorage.removeItem('tenant_subdomain');
+      localStorage.removeItem('tenant_id');
       setError(null);
     }
   };
@@ -187,6 +227,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     (error) => {
       if (error.response?.status === 401) {
         localStorage.removeItem('token');
+        localStorage.removeItem('tenant_subdomain');
+        localStorage.removeItem('tenant_id');
         setUser(null);
         setIsAuthenticated(false);
       }

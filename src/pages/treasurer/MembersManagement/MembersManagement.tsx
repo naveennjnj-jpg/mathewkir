@@ -43,6 +43,7 @@ const MembersManagement: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [importing, setImporting] = useState(false); // New state for import loading
 
   const token = localStorage.getItem("token");
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -363,6 +364,8 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
       return;
     }
 
+    setImporting(true); // Set importing state to true
+
     try {
       const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
       const response = await axios.post(
@@ -393,6 +396,8 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
     } catch (error) {
       console.error('Error importing members:', error);
       toast.error('Failed to import members');
+    } finally {
+      setImporting(false); // Reset importing state
     }
   };
 
@@ -783,6 +788,7 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                 setCsvFile(null);
                 setCsvPreview([]);
                 setValidationErrors([]);
+                setImporting(false); // Reset importing state
               }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                 <X className="w-5 h-5" />
               </button>
@@ -799,8 +805,9 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                   onChange={handleFileUpload}
                   className="hidden"
                   id="csvFile"
+                  disabled={importing} // Disable file input while importing
                 />
-                <label htmlFor="csvFile" className="cursor-pointer">
+                <label htmlFor="csvFile" className={`cursor-pointer ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <Upload className={`w-12 h-12 mx-auto mb-3 ${
                     csvFile ? 'text-green-500' : 'text-gray-400'
                   }`} />
@@ -828,7 +835,8 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                             ...columnMapping,
                             [field]: e.target.value
                           })}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                          disabled={importing} // Disable select while importing
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="">Select column</option>
                           {Object.keys(csvPreview[0]).map((header) => (
@@ -892,17 +900,26 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                     setCsvFile(null);
                     setCsvPreview([]);
                     setValidationErrors([]);
+                    setImporting(false);
                   }}
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
+                  disabled={importing}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleImportCSV}
-                  disabled={!csvFile || !columnMapping.name || !columnMapping.email}
-                  className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!csvFile || !columnMapping.name || !columnMapping.email || importing}
+                  className="flex-1 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Import Members
+                  {importing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    'Import Members'
+                  )}
                 </button>
               </div>
             </div>

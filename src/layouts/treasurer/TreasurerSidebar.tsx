@@ -92,7 +92,7 @@ const TreasurerSidebar = ({
             </span>
             <img
               className={`logo-icon ${isOpen ? 'hidden' : 'lg:block'}`}
-              src="/src/assets/images/logo/logo-icon.svg"
+              src="/src/assets/home/darklogo.png"
               alt="Logo"
             />
           </a>

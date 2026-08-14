@@ -45,7 +45,7 @@ interface PaymentSubmissionData {
   amount: number;
   paymentMethod: string;
   transactionId: string;
-  proofFile?: File;
+  proofFileUrl?: string;
   notes?: string;
 }
 
@@ -78,6 +78,7 @@ const PaymentSubmission: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const token = localStorage.getItem("token");
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -121,7 +122,7 @@ const PaymentSubmission: React.FC = () => {
         }
       } else {
         setError(response.data.message || 'Failed to fetch events');
-        setMockEvents();
+        setEvents([]);
       }
     } catch (error: any) {
       console.error('Error fetching events:', error);
@@ -132,94 +133,56 @@ const PaymentSubmission: React.FC = () => {
         setError(error.response?.data?.message || 'Failed to fetch events');
       }
       
-      setMockEvents();
+      setEvents([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock events
-  const setMockEvents = () => {
-    const mockEvents: Event[] = [
+
+// Upload file first
+const uploadProofFile = async (file: File): Promise<string | null> => {
+  try {
+    setUploadingFile(true);
+    const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
+
+    const uploadFormData = new FormData();
+    uploadFormData.append('profileImage', file);
+
+    // Use your actual endpoint: /api/upload-proof
+    const uploadResponse = await axios.post(
+      `${API_URL}/api/upload-proof`, // No '/member' in the path
+      uploadFormData,
       {
-        id: '1',
-        name: 'Annual Community Fundraiser',
-        amount: 100,
-        deadline: '2026-12-31',
-        description: 'Support our annual community fundraising event',
-        status: 'active',
-        raisedAmount: 4500,
-        targetAmount: 10000,
-        participantCount: 45
-      },
-      {
-        id: '2',
-        name: 'Park Renovation Project',
-        amount: 50,
-        deadline: '2026-10-15',
-        description: 'Help renovate the community park',
-        status: 'active',
-        raisedAmount: 2800,
-        targetAmount: 5000,
-        participantCount: 28
-      },
-      {
-        id: '3',
-        name: 'Holiday Food Drive',
-        amount: 25,
-        deadline: '2026-11-30',
-        description: 'Donate to provide holiday meals for families in need',
-        status: 'upcoming',
-        raisedAmount: 0,
-        targetAmount: 2000,
-        participantCount: 0
-      },
-      {
-        id: '4',
-        name: 'School Supplies Drive',
-        amount: 75,
-        deadline: '2026-09-30',
-        description: 'Help provide school supplies for underprivileged students',
-        status: 'active',
-        raisedAmount: 1200,
-        targetAmount: 3000,
-        participantCount: 16
-      },
-      {
-        id: '5',
-        name: 'Community Health Fair',
-        amount: 40,
-        deadline: '2026-08-15',
-        description: 'Support community health and wellness initiatives',
-        status: 'ended',
-        raisedAmount: 3200,
-        targetAmount: 3500,
-        participantCount: 80
-      },
-      {
-        id: '6',
-        name: 'Youth Sports Program',
-        amount: 60,
-        deadline: '2026-07-20',
-        description: 'Help fund youth sports programs and equipment',
-        status: 'ended',
-        raisedAmount: 4800,
-        targetAmount: 5000,
-        participantCount: 96
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Subdomain': tenantSubdomain,
+          'Content-Type': 'multipart/form-data',
+        },
       }
-    ];
-    setEvents(mockEvents);
-    
-    // Auto-select event if passed from dashboard
-    const params = new URLSearchParams(location.search);
-    const eventId = params.get('eventId');
-    if (eventId) {
-      const event = mockEvents.find(e => e.id === eventId);
-      if (event) {
-        setSelectedEventId(event.id);
+    );
+
+    if (uploadResponse.data.success) {
+      // Get the imageUrl from the response
+      const imageUrl = uploadResponse.data.data.imageUrl;
+      
+      // If it's a relative path, prepend the API URL
+      if (imageUrl.startsWith('/')) {
+        return `${API_URL}${imageUrl}`;
       }
+      
+      return imageUrl;
+    } else {
+      throw new Error(uploadResponse.data.message || 'Failed to upload file');
     }
-  };
+  } catch (error: any) {
+    console.error('Error uploading file:', error);
+    toast.error(error.response?.data?.message || 'Failed to upload proof file');
+    return null;
+  } finally {
+    setUploadingFile(false);
+  }
+};
 
   // Open payment modal for event
   const openPaymentModal = (event: Event) => {
@@ -237,7 +200,7 @@ const PaymentSubmission: React.FC = () => {
     setShowPaymentModal(true);
   };
 
-  // Handle file upload
+  // Handle file upload (local state only)
   const handleFileUpload = (file: File) => {
     const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
     if (!validTypes.includes(file.type)) {
@@ -251,7 +214,6 @@ const PaymentSubmission: React.FC = () => {
     }
 
     setSelectedFile(file);
-    setFormData(prev => ({ ...prev, proofFile: file }));
 
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -290,81 +252,94 @@ const PaymentSubmission: React.FC = () => {
   const removeFile = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
-    setFormData(prev => {
-      const { proofFile, ...rest } = prev;
-      return rest;
-    });
   };
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.eventId) {
-      toast.error('Please select an event');
-      return;
-    }
-    if (!formData.paymentMethod) {
-      toast.error('Please select a payment method');
-      return;
-    }
-    if (!formData.transactionId.trim()) {
-      toast.error('Please enter a transaction ID or reference');
-      return;
+// Handle form submission
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!formData.eventId) {
+    toast.error('Please select an event');
+    return;
+  }
+  if (!formData.paymentMethod) {
+    toast.error('Please select a payment method');
+    return;
+  }
+  if (!formData.transactionId.trim()) {
+    toast.error('Please enter a transaction ID or reference');
+    return;
+  }
+
+  setSubmitting(true);
+  setSubmissionStatus({ status: 'pending', message: 'Uploading proof and submitting payment...' });
+
+  try {
+    let proofFileUrl = '';
+
+    // Upload proof file if selected
+    if (selectedFile) {
+      setSubmissionStatus({ status: 'pending', message: 'Uploading proof file...' });
+      const uploadedUrl = await uploadProofFile(selectedFile);
+      if (uploadedUrl) {
+        proofFileUrl = uploadedUrl;
+      } else {
+        throw new Error('Failed to upload proof file');
+      }
     }
 
-    setSubmitting(true);
     setSubmissionStatus({ status: 'pending', message: 'Submitting payment for verification...' });
 
-    try {
-      const submitData = new FormData();
-      submitData.append('eventId', formData.eventId);
-      submitData.append('amount', formData.amount.toString());
-      submitData.append('paymentMethod', formData.paymentMethod);
-      submitData.append('transactionId', formData.transactionId);
-      if (formData.notes) submitData.append('notes', formData.notes);
-      if (selectedFile) submitData.append('proofFile', selectedFile);
+    const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
 
-      const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
+    const submitData = {
+      eventId: formData.eventId,
+      amount: formData.amount,
+      paymentMethod: formData.paymentMethod,
+      transactionId: formData.transactionId,
+      proofFileUrl: proofFileUrl,
+      notes: formData.notes
+    };
 
-      const response = await axios.post(
-        `${API_URL}/api/member/payments/submit`,
-        submitData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-Tenant-Subdomain': tenantSubdomain,
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setSubmissionStatus({
-          status: 'success',
-          message: 'Payment submitted successfully! Your payment is pending verification.'
-        });
-        toast.success('Payment submitted successfully!');
-        
-        setTimeout(() => {
-          setShowPaymentModal(false);
-          setSubmissionStatus({ status: 'idle', message: '' });
-          fetchEvents();
-        }, 3000);
-      } else {
-        throw new Error(response.data.message || 'Submission failed');
+    // Submit payment - use your actual endpoint
+    const response = await axios.post(
+      `${API_URL}/api/member/payments/submit`, // This should have '/member' if that's your route
+      submitData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Tenant-Subdomain': tenantSubdomain,
+          'Content-Type': 'application/json',
+        },
       }
-    } catch (error: any) {
-      console.error('Error submitting payment:', error);
+    );
+
+    if (response.data.success) {
       setSubmissionStatus({
-        status: 'error',
-        message: error.response?.data?.message || 'Failed to submit payment. Please try again.'
+        status: 'success',
+        message: 'Payment submitted successfully! Your payment is pending verification.'
       });
-      toast.error(error.response?.data?.message || 'Failed to submit payment');
-    } finally {
-      setSubmitting(false);
+      toast.success('Payment submitted successfully!');
+      
+      setTimeout(() => {
+        setShowPaymentModal(false);
+        setSubmissionStatus({ status: 'idle', message: '' });
+        fetchEvents();
+      }, 3000);
+    } else {
+      throw new Error(response.data.message || 'Submission failed');
     }
-  };
+  } catch (error: any) {
+    console.error('Error submitting payment:', error);
+    setSubmissionStatus({
+      status: 'error',
+      message: error.response?.data?.message || 'Failed to submit payment. Please try again.'
+    });
+    toast.error(error.response?.data?.message || 'Failed to submit payment');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -804,6 +779,12 @@ const PaymentSubmission: React.FC = () => {
                       </button>
                     </div>
                   )}
+                  {uploadingFile && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
+                      <span className="text-sm text-gray-500">Uploading file...</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes */}
@@ -824,13 +805,13 @@ const PaymentSubmission: React.FC = () => {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={submitting || !formData.paymentMethod || !formData.transactionId}
+                  disabled={submitting || uploadingFile || !formData.paymentMethod || !formData.transactionId}
                   className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 >
-                  {submitting ? (
+                  {submitting || uploadingFile ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Submitting...
+                      {uploadingFile ? 'Uploading...' : 'Submitting...'}
                     </>
                   ) : (
                     <>

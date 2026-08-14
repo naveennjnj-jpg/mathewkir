@@ -749,7 +749,7 @@ const Beneficiaries: React.FC = () => {
                 </div>
 
                 {/* Email */}
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     Email Address
                     <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">(Optional)</span>
@@ -761,7 +761,7 @@ const Beneficiaries: React.FC = () => {
                     placeholder="Enter email address"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 text-gray-800 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
-                </div>
+                </div> */}
 
                 <div className="flex gap-3 pt-4">
                   <button
@@ -878,7 +878,7 @@ const Beneficiaries: React.FC = () => {
                   />
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     Email Address
                     <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">(Optional)</span>
@@ -889,7 +889,7 @@ const Beneficiaries: React.FC = () => {
                     onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 text-gray-800 dark:text-white/90 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
-                </div>
+                </div> */}
 
                 <div className="flex gap-3 pt-4">
                   <button

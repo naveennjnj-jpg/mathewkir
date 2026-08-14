@@ -28,7 +28,12 @@ import {
   UserCheck,
   FileSpreadsheet,
   PanelLeft,
-  PanelRight
+  PanelRight,
+  Loader2,
+  AlertCircle,
+  CheckCircle,
+  DollarSign,
+  Mail
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import axios from "axios";
@@ -53,6 +58,26 @@ interface UserData {
   initials?: string;
 }
 
+interface Notification {
+  notification_id: string;
+  tenant_id: string;
+  user_id: string;
+  type: string;
+  channel: string | null;
+  message: string;
+  sent_at: string;
+  read_at: string | null;
+  tenant: {
+    tenant_id: string;
+    name: string;
+  };
+  user: {
+    user_id: string;
+    full_name: string;
+    email: string;
+  };
+}
+
 const AdminHeader = ({
   onMenuClick,
   isSidebarOpen = true,
@@ -70,7 +95,8 @@ const AdminHeader = ({
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isMenuToggle, setIsMenuToggle] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [notifying, setNotifying] = useState(true);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -153,6 +179,130 @@ const AdminHeader = ({
     setIsDarkMode(darkMode);
   }, []);
 
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/api/admin/allnotifications`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log('Notifications response:', response.data);
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        setNotifications(response.data.data);
+      } else {
+        setNotifications([]);
+      }
+    } catch (error: any) {
+      console.error('Error fetching notifications:', error);
+      setNotifications([]);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Get icon for notification type
+  const getNotificationIcon = (type?: string) => {
+    if (!type) return Bell;
+
+    const typeMap: Record<string, any> = {
+      'payment_approved': CheckCircle,
+      'payment_pending': Clock,
+      'payment_failed': AlertCircle,
+      'payment_received': DollarSign,
+      'user_registered': Users,
+      'user_invited': Mail,
+      'event_created': Calendar,
+      'event_updated': Calendar,
+      'system_update': Settings,
+      'project_submitted': FileText,
+      'project_approved': CheckCircle,
+      'project_rejected': AlertCircle,
+    };
+
+    return typeMap[type] || Bell;
+  };
+
+  // Get color for notification type
+  const getNotificationColor = (type?: string) => {
+    if (!type) return 'text-[#C9A227] bg-[#C9A227]/10';
+
+    const colorMap: Record<string, string> = {
+      'payment_approved': 'text-green-500 bg-green-500/10',
+      'payment_pending': 'text-yellow-500 bg-yellow-500/10',
+      'payment_failed': 'text-red-500 bg-red-500/10',
+      'payment_received': 'text-green-500 bg-green-500/10',
+      'user_registered': 'text-blue-500 bg-blue-500/10',
+      'user_invited': 'text-purple-500 bg-purple-500/10',
+      'event_created': 'text-pink-500 bg-pink-500/10',
+      'event_updated': 'text-orange-500 bg-orange-500/10',
+      'system_update': 'text-indigo-500 bg-indigo-500/10',
+      'project_submitted': 'text-purple-500 bg-purple-500/10',
+      'project_approved': 'text-green-500 bg-green-500/10',
+      'project_rejected': 'text-red-500 bg-red-500/10',
+    };
+
+    return colorMap[type] || 'text-[#C9A227] bg-[#C9A227]/10';
+  };
+
+  // Format time
+  const formatTime = (date: string) => {
+    if (!date) return 'Just now';
+
+    try {
+      const now = new Date();
+      const notificationDate = new Date(date);
+      const diffMs = now.getTime() - notificationDate.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins} min ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+
+      return notificationDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Just now';
+    }
+  };
+
+  // Get readable type name
+  const getTypeDisplayName = (type: string) => {
+    if (!type) return 'Notification';
+
+    const typeMap: Record<string, string> = {
+      'payment_approved': 'Payment Approved',
+      'payment_pending': 'Payment Pending',
+      'payment_failed': 'Payment Failed',
+      'payment_received': 'Payment Received',
+      'user_registered': 'New User',
+      'user_invited': 'User Invited',
+      'event_created': 'Event Created',
+      'event_updated': 'Event Updated',
+      'system_update': 'System Update',
+      'project_submitted': 'Project Submitted',
+      'project_approved': 'Project Approved',
+      'project_rejected': 'Project Rejected',
+    };
+
+    return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   // Toggle dark mode
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
@@ -176,78 +326,44 @@ const AdminHeader = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Fetch notifications when notification panel is opened
+  useEffect(() => {
+    if (isNotificationsOpen) {
+      fetchNotifications();
+    }
+  }, [isNotificationsOpen]);
+
+  // Mark notification as read
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      await axios.put(`${API_URL}/api/admin/notifications/${notificationId}/read`, {}, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Update local state
+      setNotifications(prev =>
+        prev.map(notif =>
+          notif.notification_id === notificationId
+            ? { ...notif, read_at: new Date().toISOString() }
+            : notif
+        )
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
 
-  const notifications = [
-    {
-      id: 1,
-      title: "New user registered",
-      description: "John Doe just created a new account",
-      time: "5 min ago",
-      icon: Users,
-      color: "text-[#C9A227]",
-      bgColor: "bg-[#C9A227]/10",
-      read: false,
-    },
-    {
-      id: 2,
-      title: "Project submission",
-      description: "New project 'Q2 Research Output' submitted for review",
-      time: "1 hour ago",
-      icon: FileText,
-      color: "text-blue-500",
-      bgColor: "bg-blue-500/10",
-      read: false,
-    },
-    {
-      id: 3,
-      title: "Payment received",
-      description: "Invoice #INV-2026-004 has been paid",
-      time: "3 hours ago",
-      icon: CreditCard,
-      color: "text-green-500",
-      bgColor: "bg-green-500/10",
-      read: true,
-    },
-    {
-      id: 4,
-      title: "System update",
-      description: "New version 2.4.0 is ready for deployment",
-      time: "5 hours ago",
-      icon: Settings,
-      color: "text-purple-500",
-      bgColor: "bg-purple-500/10",
-      read: true,
-    },
-  ];
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const adminNavItems = [
-    { title: "Settings", path: "/admin/settings", icon: Settings2 },
-  ];
-
-  const getPageTitle = () => {
-    const currentPath = location.pathname;
-    const titles: Record<string, string> = {
-      "/admin": "Dashboard",
-      "/admin/users": "Users Management",
-      "/admin/projects": "Projects",
-      "/admin/workshops": "Workshops",
-      "/admin/narrative-engine": "AI Writing",
-      "/admin/voice-calibrator": "AI Speech",
-      "/admin/invoices": "Invoices",
-      "/admin/settings": "Settings",
-      "/admin/analytics": "Analytics",
-      "/admin/subscriptions": "Subscriptions",
-      "/admin/brt-tickets": "BRT Tickets",
-      "/admin/events": "Events",
-    };
-    return titles[currentPath] || "Dashboard";
-  };
+  const unreadCount = notifications.filter(n => !n.read_at).length;
 
   return (
     <>
@@ -343,44 +459,6 @@ const AdminHeader = ({
               </svg>
             </button>
             {/* Application nav menu button */}
-
-            {/* <div className="hidden lg:block">
-              <form>
-                <div className="relative">
-                  <span className="absolute top-1/2 left-4 -translate-y-1/2">
-                    <svg
-                      className="fill-gray-500 dark:fill-gray-400"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Search or type command..."
-                    id="search-input"
-                    className="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pr-14 pl-12 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden xl:w-[430px] dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30"
-                  />
-
-                  <button
-                    id="search-button"
-                    className="absolute top-1/2 right-2.5 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400"
-                  >
-                    <span> ⌘ </span>
-                    <span> K </span>
-                  </button>
-                </div>
-              </form>
-            </div> */}
           </div>
 
           <div
@@ -430,14 +508,13 @@ const AdminHeader = ({
                   className="hover:text-dark-900 relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
                   onClick={() => {
                     setIsNotificationsOpen(!isNotificationsOpen);
-                    setNotifying(false);
                   }}
                 >
-                  <span
-                    className={`${!notifying ? 'hidden' : 'flex'} absolute top-0.5 right-0 z-1 h-2 w-2 rounded-full bg-orange-400`}
-                  >
-                    <span className="absolute -z-1 inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75"></span>
-                  </span>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-orange-400 text-[10px] font-bold text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                   <svg
                     className="fill-current"
                     width="20"
@@ -460,7 +537,12 @@ const AdminHeader = ({
                   <div className="shadow-theme-lg dark:bg-gray-dark absolute -right-[240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 sm:w-[361px] lg:right-0 dark:border-gray-800">
                     <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
                       <h5 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-                        Notification
+                        Notifications
+                        {unreadCount > 0 && (
+                          <span className="ml-2 text-xs font-medium text-orange-400">
+                            ({unreadCount} new)
+                          </span>
+                        )}
                       </h5>
 
                       <button
@@ -485,47 +567,88 @@ const AdminHeader = ({
                       </button>
                     </div>
 
-                    <ul className="custom-scrollbar flex h-auto flex-col overflow-y-auto">
-                      {notifications.map((notification) => (
-                        <li key={notification.id}>
-                          <a
-                            className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                            href="#"
-                          >
-                            <span className="relative z-1 block h-10 w-full max-w-10 rounded-full">
-                              <img
-                                src="/images/user/user-02.jpg"
-                                alt="User"
-                                className="overflow-hidden rounded-full"
-                              />
-                              <span className="bg-success-500 absolute right-0 bottom-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white dark:border-gray-900"></span>
-                            </span>
+                    {loadingNotifications ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <Loader2 className="w-8 h-8 animate-spin text-brand-500 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Loading notifications...</p>
+                        </div>
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500 dark:text-gray-400">No notifications</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">You're all caught up!</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <ul className="custom-scrollbar flex h-auto flex-col overflow-y-auto">
+                        {notifications.map((notification) => {
+                          const IconComponent = getNotificationIcon(notification.type);
+                          const colorClass = getNotificationColor(notification.type);
+                          const isRead = !!notification.read_at;
 
-                            <span className="block">
-                              <span className="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
-                                <span className="font-medium text-gray-800 dark:text-white/90">
-                                  {notification.title}
+                          return (
+                            <li key={notification.notification_id}>
+                              <div
+                                className={`flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5 ${!isRead ? 'bg-blue-50/50 dark:bg-blue-500/5' : ''}`}
+                              >
+                                <span className={`relative z-1 block h-10 w-full max-w-10 rounded-full ${colorClass} flex items-center justify-center flex-shrink-0`}>
+                                  <IconComponent className="w-5 h-5" />
                                 </span>
-                                {notification.description}
-                              </span>
 
-                              <span className="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                                <span>Project</span>
-                                <span className="h-1 w-1 rounded-full bg-gray-400"></span>
-                                <span>{notification.time}</span>
-                              </span>
-                            </span>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
+                                <span className="block flex-1 min-w-0">
+                                  <span className="text-theme-sm mb-1.5 block text-gray-500 dark:text-gray-400">
+                                    <span className="font-medium text-gray-800 dark:text-white/90 block">
+                                      {getTypeDisplayName(notification.type)}
+                                    </span>
+                                    <span className="text-sm block mt-0.5">
+                                      {notification.message}
+                                    </span>
+                                    {notification.tenant && (
+                                      <span className="text-xs text-gray-400 dark:text-gray-500 block mt-1">
+                                        Tenant: {notification.tenant.name}
+                                      </span>
+                                    )}
+                                    {notification.user && (
+                                      <span className="text-xs text-gray-400 dark:text-gray-500 block">
+                                        User: {notification.user.full_name}
+                                      </span>
+                                    )}
+                                  </span>
 
-                    <a
-                      href="#"
-                      className="text-theme-sm shadow-theme-xs mt-3 flex justify-center rounded-lg border border-gray-300 bg-white p-3 font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
-                    >
-                      View All Notification
-                    </a>
+                                  <span className="text-theme-xs flex items-center gap-2 text-gray-500 dark:text-gray-400 mt-1">
+                                    <span>{formatTime(notification.sent_at)}</span>
+                                    {!isRead && (
+                                      <>
+                                        <span className="h-1 w-1 rounded-full bg-blue-500"></span>
+                                        <span className="text-blue-500 text-xs font-medium">New</span>
+                                      </>
+                                    )}
+                                  </span>
+                                </span>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+
+                    {notifications.length > 0 && (
+                      // In AdminHeader.tsx, update the "View All Notifications" link
+                      <a
+                        href="/admin/notifications"
+                        className="text-theme-sm shadow-theme-xs mt-3 flex justify-center rounded-lg border border-gray-300 bg-white p-3 font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate('/admin/notifications');
+                          setIsNotificationsOpen(false);
+                        }}
+                      >
+                        View All Notifications
+                      </a>
+                    )}
                   </div>
                 )}
                 {/* Dropdown End */}
@@ -554,7 +677,6 @@ const AdminHeader = ({
                     </div>
                   )}
                 </span>
-
 
                 <span className="text-theme-sm mr-1 block font-medium">
                   {loading
@@ -593,7 +715,6 @@ const AdminHeader = ({
                   </div>
 
                   <ul className="flex flex-col gap-1 border-b border-gray-200 pt-4 pb-3 dark:border-gray-800">
-
                     <li>
                       <Link
                         to="/admin/settings"
@@ -618,7 +739,6 @@ const AdminHeader = ({
                         Account settings
                       </Link>
                     </li>
-
                   </ul>
                   <button
                     onClick={() => {

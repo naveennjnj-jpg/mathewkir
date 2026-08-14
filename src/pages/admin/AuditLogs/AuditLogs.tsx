@@ -82,7 +82,7 @@ const AuditLogs: React.FC = () => {
     { id: 'this-week', label: 'This Week' },
     { id: 'this-month', label: 'This Month' },
     { id: 'last-month', label: 'Last Month' },
-    { id: 'custom', label: 'Custom Range' },
+    // { id: 'custom', label: 'Custom Range' },
   ];
 
   // Fetch tenants for filter
