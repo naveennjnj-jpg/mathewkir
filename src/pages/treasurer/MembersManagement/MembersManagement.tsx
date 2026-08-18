@@ -31,6 +31,7 @@ interface Member {
   status: 'active' | 'inactive';
   outstandingDues: number;
   totalPaid: number;
+  overpaidAmount: number;
 }
 
 const MembersManagement: React.FC = () => {
@@ -107,7 +108,8 @@ const MembersManagement: React.FC = () => {
       joinDate: '2026-01-15',
       status: 'active',
       outstandingDues: 500,
-      totalPaid: 1250
+      totalPaid: 1250,
+      overpaidAmount:10
     },
     {
       id: '2',
@@ -117,7 +119,8 @@ const MembersManagement: React.FC = () => {
       joinDate: '2026-01-10',
       status: 'active',
       outstandingDues: 0,
-      totalPaid: 2000
+      totalPaid: 2000,
+      overpaidAmount:10
     },
     {
       id: '3',
@@ -127,7 +130,8 @@ const MembersManagement: React.FC = () => {
       joinDate: '2026-01-05',
       status: 'inactive',
       outstandingDues: 750,
-      totalPaid: 500
+      totalPaid: 500,
+      overpaidAmount:10
     }
   ];
 
@@ -512,6 +516,8 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding Dues</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Paid</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Over Paid Amount</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -544,6 +550,12 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white">
                       {formatCurrency(member.outstandingDues)}
+                    </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white">
+                      {formatCurrency(member.totalPaid)}
+                    </td>
+                                          <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white">
+                      {formatCurrency(member.overpaidAmount)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
