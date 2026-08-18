@@ -11,7 +11,6 @@ import {
   AlertCircle,
   Loader2,
   FileText,
-  Image,
   X,
   Check,
   Clock,
@@ -79,6 +78,7 @@ const PaymentSubmission: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [customAmount, setCustomAmount] = useState<number>(0);
 
   const token = localStorage.getItem("token");
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -139,61 +139,58 @@ const PaymentSubmission: React.FC = () => {
     }
   };
 
+  // Upload file first
+  const uploadProofFile = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingFile(true);
+      const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
 
-// Upload file first
-const uploadProofFile = async (file: File): Promise<string | null> => {
-  try {
-    setUploadingFile(true);
-    const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
+      const uploadFormData = new FormData();
+      uploadFormData.append('profileImage', file);
 
-    const uploadFormData = new FormData();
-    uploadFormData.append('profileImage', file);
+      const uploadResponse = await axios.post(
+        `${API_URL}/api/upload-proof`,
+        uploadFormData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Tenant-Subdomain': tenantSubdomain,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
 
-    // Use your actual endpoint: /api/upload-proof
-    const uploadResponse = await axios.post(
-      `${API_URL}/api/upload-proof`, // No '/member' in the path
-      uploadFormData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'X-Tenant-Subdomain': tenantSubdomain,
-          'Content-Type': 'multipart/form-data',
-        },
+      if (uploadResponse.data.success) {
+        const imageUrl = uploadResponse.data.data.imageUrl;
+        
+        if (imageUrl.startsWith('/')) {
+          return `${API_URL}${imageUrl}`;
+        }
+        
+        return imageUrl;
+      } else {
+        throw new Error(uploadResponse.data.message || 'Failed to upload file');
       }
-    );
-
-    if (uploadResponse.data.success) {
-      // Get the imageUrl from the response
-      const imageUrl = uploadResponse.data.data.imageUrl;
-      
-      // If it's a relative path, prepend the API URL
-      if (imageUrl.startsWith('/')) {
-        return `${API_URL}${imageUrl}`;
-      }
-      
-      return imageUrl;
-    } else {
-      throw new Error(uploadResponse.data.message || 'Failed to upload file');
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload proof file');
+      return null;
+    } finally {
+      setUploadingFile(false);
     }
-  } catch (error: any) {
-    console.error('Error uploading file:', error);
-    toast.error(error.response?.data?.message || 'Failed to upload proof file');
-    return null;
-  } finally {
-    setUploadingFile(false);
-  }
-};
+  };
 
   // Open payment modal for event
   const openPaymentModal = (event: Event) => {
     setSelectedEventId(event.id);
     setFormData({
       eventId: event.id,
-      amount: event.amount,
+      amount: 0, // ✅ Start with 0, user will enter amount
       paymentMethod: '',
       transactionId: '',
       notes: ''
     });
+    setCustomAmount(0);
     setSelectedFile(null);
     setPreviewUrl(null);
     setSubmissionStatus({ status: 'idle', message: '' });
@@ -254,92 +251,104 @@ const uploadProofFile = async (file: File): Promise<string | null> => {
     setPreviewUrl(null);
   };
 
-// Handle form submission
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (!formData.eventId) {
-    toast.error('Please select an event');
-    return;
-  }
-  if (!formData.paymentMethod) {
-    toast.error('Please select a payment method');
-    return;
-  }
-  if (!formData.transactionId.trim()) {
-    toast.error('Please enter a transaction ID or reference');
-    return;
-  }
+  // Handle amount change
+  const handleAmountChange = (value: number) => {
+    setCustomAmount(value);
+    setFormData(prev => ({ ...prev, amount: value }));
+  };
 
-  setSubmitting(true);
-  setSubmissionStatus({ status: 'pending', message: 'Uploading proof and submitting payment...' });
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.eventId) {
+      toast.error('Please select an event');
+      return;
+    }
+    
+    // ✅ Validate amount - user must enter any amount > 0
+    if (!formData.amount || formData.amount <= 0) {
+      toast.error('Please enter a valid contribution amount');
+      return;
+    }
 
-  try {
-    let proofFileUrl = '';
+    if (!formData.paymentMethod) {
+      toast.error('Please select a payment method');
+      return;
+    }
+    if (!formData.transactionId.trim()) {
+      toast.error('Please enter a transaction ID or reference');
+      return;
+    }
 
-    // Upload proof file if selected
-    if (selectedFile) {
-      setSubmissionStatus({ status: 'pending', message: 'Uploading proof file...' });
-      const uploadedUrl = await uploadProofFile(selectedFile);
-      if (uploadedUrl) {
-        proofFileUrl = uploadedUrl;
+    setSubmitting(true);
+    setSubmissionStatus({ status: 'pending', message: 'Uploading proof and submitting payment...' });
+
+    try {
+      let proofFileUrl = '';
+
+      // Upload proof file if selected
+      if (selectedFile) {
+        setSubmissionStatus({ status: 'pending', message: 'Uploading proof file...' });
+        const uploadedUrl = await uploadProofFile(selectedFile);
+        if (uploadedUrl) {
+          proofFileUrl = uploadedUrl;
+        } else {
+          throw new Error('Failed to upload proof file');
+        }
+      }
+
+      setSubmissionStatus({ status: 'pending', message: 'Submitting payment for verification...' });
+
+      const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
+
+      const submitData = {
+        eventId: formData.eventId,
+        amount: formData.amount, // ✅ User's custom amount
+        paymentMethod: formData.paymentMethod,
+        transactionId: formData.transactionId,
+        proofFileUrl: proofFileUrl,
+        notes: formData.notes
+      };
+
+      const response = await axios.post(
+        `${API_URL}/api/member/payments/submit`,
+        submitData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-Tenant-Subdomain': tenantSubdomain,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setSubmissionStatus({
+          status: 'success',
+          message: `Payment of ${formatCurrency(formData.amount)} submitted successfully! Your payment is pending verification.`
+        });
+        toast.success('Payment submitted successfully!');
+        
+        setTimeout(() => {
+          setShowPaymentModal(false);
+          setSubmissionStatus({ status: 'idle', message: '' });
+          fetchEvents();
+        }, 3000);
       } else {
-        throw new Error('Failed to upload proof file');
+        throw new Error(response.data.message || 'Submission failed');
       }
-    }
-
-    setSubmissionStatus({ status: 'pending', message: 'Submitting payment for verification...' });
-
-    const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
-
-    const submitData = {
-      eventId: formData.eventId,
-      amount: formData.amount,
-      paymentMethod: formData.paymentMethod,
-      transactionId: formData.transactionId,
-      proofFileUrl: proofFileUrl,
-      notes: formData.notes
-    };
-
-    // Submit payment - use your actual endpoint
-    const response = await axios.post(
-      `${API_URL}/api/member/payments/submit`, // This should have '/member' if that's your route
-      submitData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'X-Tenant-Subdomain': tenantSubdomain,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (response.data.success) {
+    } catch (error: any) {
+      console.error('Error submitting payment:', error);
       setSubmissionStatus({
-        status: 'success',
-        message: 'Payment submitted successfully! Your payment is pending verification.'
+        status: 'error',
+        message: error.response?.data?.message || 'Failed to submit payment. Please try again.'
       });
-      toast.success('Payment submitted successfully!');
-      
-      setTimeout(() => {
-        setShowPaymentModal(false);
-        setSubmissionStatus({ status: 'idle', message: '' });
-        fetchEvents();
-      }, 3000);
-    } else {
-      throw new Error(response.data.message || 'Submission failed');
+      toast.error(error.response?.data?.message || 'Failed to submit payment');
+    } finally {
+      setSubmitting(false);
     }
-  } catch (error: any) {
-    console.error('Error submitting payment:', error);
-    setSubmissionStatus({
-      status: 'error',
-      message: error.response?.data?.message || 'Failed to submit payment. Please try again.'
-    });
-    toast.error(error.response?.data?.message || 'Failed to submit payment');
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -347,7 +356,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
@@ -490,7 +499,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
                   
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Amount</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Suggested Amount</span>
                     <span className="text-xl font-bold text-gray-800 dark:text-white/90">
                       {formatCurrency(event.amount)}
                     </span>
@@ -629,10 +638,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                       <p className="font-medium text-gray-800 dark:text-white/90">{selectedEvent.name}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Amount</p>
-                      <p className="text-2xl font-bold text-brand-600 dark:text-brand-400">
-                        {formatCurrency(selectedEvent.amount)}
-                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
+                      {getStatusBadge(selectedEvent.status)}
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Deadline</p>
@@ -641,31 +648,76 @@ const handleSubmit = async (e: React.FormEvent) => {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
-                      {getStatusBadge(selectedEvent.status)}
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Suggested Amount</p>
+                      <p className="font-medium text-gray-800 dark:text-white/90">
+                        {formatCurrency(selectedEvent.amount)}
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Amount (Read-only) */}
+                {/* ✅ Amount - Fully Editable */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    Contribution Amount *
+                    Your Contribution Amount *
+                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+                      (Enter any amount you wish)
+                    </span>
                   </label>
+                  
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
                       $
                     </span>
                     <input
                       type="number"
-                      value={formData.amount || ''}
-                      readOnly
-                      className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50 text-gray-800 dark:text-white/90 cursor-not-allowed text-lg font-semibold"
+                      min="1"
+                      step="1"
+                      value={customAmount || ''}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val) && val >= 0) {
+                          handleAmountChange(val);
+                        } else {
+                          handleAmountChange(0);
+                        }
+                      }}
+                      className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 text-gray-800 dark:text-white/90 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      placeholder="Enter your contribution amount..."
+                      autoFocus
                     />
                   </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    Amount is fixed for this event
-                  </p>
+
+                  {/* Quick amount buttons */}
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {[10, 25, 50, 100, 200, 500].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => handleAmountChange(amt)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          customAmount === amt
+                            ? 'bg-brand-600 text-white shadow-md'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 hover:scale-105'
+                        }`}
+                      >
+                        ${amt}
+                      </button>
+                    ))}
+                    {customAmount > 0 && ![10, 25, 50, 100, 200, 500].includes(customAmount) && (
+                      <span className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-50 dark:bg-brand-500/15 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-500/20">
+                        Custom: ${customAmount}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Show event suggested amount for reference */}
+                  <div className="mt-3 text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/30 rounded-lg px-3 py-2">
+                    <span className="font-medium text-gray-500 dark:text-gray-400">Event suggested amount:</span>{' '}
+                    <span className="text-gray-700 dark:text-gray-300">{formatCurrency(selectedEvent.amount)}</span>
+                    <span className="mx-2">•</span>
+                    <span className="text-gray-400">You can contribute any amount</span>
+                  </div>
                 </div>
 
                 {/* Payment Method */}
@@ -805,7 +857,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={submitting || uploadingFile || !formData.paymentMethod || !formData.transactionId}
+                  disabled={submitting || uploadingFile || !formData.paymentMethod || !formData.transactionId || !formData.amount || formData.amount <= 0}
                   className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 >
                   {submitting || uploadingFile ? (
@@ -816,7 +868,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   ) : (
                     <>
                       <Send className="w-5 h-5" />
-                      Submit Payment
+                      Submit ${customAmount || '0'} Contribution
                     </>
                   )}
                 </button>
