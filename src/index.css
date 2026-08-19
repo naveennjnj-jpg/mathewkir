@@ -749,3 +749,17 @@ span.flatpickr-weekday,
   opacity: 0.8;
   cursor: grabbing; /* Changes the cursor to indicate dragging */
 }
+
+
+input[type="date"] {
+  -webkit-appearance: auto !important;
+  appearance: auto !important;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  cursor: pointer;
+  pointer-events: auto !important;
+}

@@ -49,6 +49,14 @@ const Reports: React.FC = () => {
     { id: 'reconciliation', label: 'Reconciliation', icon: <File className="w-4 h-4" /> },
   ];
 
+  // Handle date change
+  const handleDateChange = (field: 'start' | 'end', value: string) => {
+    setDateRange(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   // Generate Report
   const handleGenerateReport = async () => {
     if (!dateRange.start || !dateRange.end) {
@@ -108,10 +116,10 @@ const Reports: React.FC = () => {
       const response = await axios.post(
         `${API_URL}/api/treasurer/reports/export`,
         {
-          reportType,
+          reportType: reportType,
           startDate: dateRange.start,
           endDate: dateRange.end,
-          format
+          format: format
         },
         {
           headers: {
@@ -182,11 +190,13 @@ const Reports: React.FC = () => {
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="reportType" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Report Type
             </label>
             <div className="relative">
               <select
+                id="reportType"
+                name="reportType"
                 value={reportType}
                 onChange={(e) => setReportType(e.target.value as ReportType)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 appearance-none"
@@ -200,26 +210,36 @@ const Reports: React.FC = () => {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="startDate" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Start Date <span className="text-red-500">*</span>
             </label>
             <input
+              id="startDate"
+              name="startDate"
               type="date"
               value={dateRange.start}
-              onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+              onChange={(e) => handleDateChange('start', e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 cursor-pointer"
+              min="2000-01-01"
+              max="2099-12-31"
+              autoComplete="off"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="endDate" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               End Date <span className="text-red-500">*</span>
             </label>
             <input
+              id="endDate"
+              name="endDate"
               type="date"
               value={dateRange.end}
-              onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+              onChange={(e) => handleDateChange('end', e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 cursor-pointer"
+              min="2000-01-01"
+              max="2099-12-31"
+              autoComplete="off"
             />
           </div>
         </div>
