@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import logo from "../../assets/home/darklogo.png";
 import {
   LayoutDashboard,
   Users,
@@ -77,22 +78,22 @@ const TreasurerSidebar = ({
             !isOpen ? 'justify-center' : 'justify-between'
           }`}
         >
-          <a href="treasurer">
+          <a href="/treasurer">
             <span className={`logo ${!isOpen ? 'hidden' : ''}`}>
               <img 
                 className="dark:hidden" 
-                src="/src/assets/home/darklogo.png" 
+                src={logo} 
                 alt="Logo" 
               />
               <img
                 className="hidden dark:block"
-                src="/src/assets/home/darklogo.png"
+                src={logo}
                 alt="Logo"
               />
             </span>
             <img
               className={`logo-icon ${isOpen ? 'hidden' : 'lg:block'}`}
-              src="/src/assets/home/darklogo.png"
+              src={logo}
               alt="Logo"
             />
           </a>

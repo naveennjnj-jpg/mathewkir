@@ -71,7 +71,7 @@ const MemberSidebar = ({
             !isOpen ? 'justify-center' : 'justify-between'
           }`}
         >
-          <a href="/super-admin">
+          <a href="/member">
             <span className={`logo ${!isOpen ? 'hidden' : ''}`}>
               <img 
                 className="dark:hidden" 
