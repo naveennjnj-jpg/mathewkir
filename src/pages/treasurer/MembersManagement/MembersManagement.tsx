@@ -29,6 +29,8 @@ interface Member {
   phone: string;
   joinDate: string;
   status: 'active' | 'inactive';
+  opening_balance: number;      // 🔥 नया
+  total_paid: number;           // 🔥 नया
   outstandingDues: number;
   totalPaid: number;
   overpaidAmount: number;
@@ -44,17 +46,18 @@ const MembersManagement: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [importing, setImporting] = useState(false); // New state for import loading
+  const [importing, setImporting] = useState(false);
 
   const token = localStorage.getItem("token");
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-  // Form state
+  // Form state - Add Member
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    status: 'active'
+    status: 'active',
+    opening_balance: 0  // 🔥 नया
   });
 
   // Edit form state
@@ -65,13 +68,14 @@ const MembersManagement: React.FC = () => {
     status: 'active'
   });
 
-  // CSV Import state
+  // CSV Import state - 🔥 Updated with opening_balance
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<any[]>([]);
   const [columnMapping, setColumnMapping] = useState({
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    opening_balance: ''  // 🔥 नया
   });
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
@@ -92,7 +96,6 @@ const MembersManagement: React.FC = () => {
     } catch (error) {
       console.error('Error fetching members:', error);
       toast.error('Failed to fetch members');
-      // Mock data
       setMembers(getMockMembers());
     } finally {
       setLoading(false);
@@ -107,9 +110,11 @@ const MembersManagement: React.FC = () => {
       phone: '+1 234-567-8900',
       joinDate: '2026-01-15',
       status: 'active',
-      outstandingDues: 500,
+      opening_balance: 5000,
+      total_paid: 1250,
+      outstandingDues: 3750,
       totalPaid: 1250,
-      overpaidAmount:10
+      overpaidAmount: 0
     },
     {
       id: '2',
@@ -118,9 +123,11 @@ const MembersManagement: React.FC = () => {
       phone: '+1 234-567-8901',
       joinDate: '2026-01-10',
       status: 'active',
+      opening_balance: 2000,
+      total_paid: 2000,
       outstandingDues: 0,
       totalPaid: 2000,
-      overpaidAmount:10
+      overpaidAmount: 0
     },
     {
       id: '3',
@@ -129,17 +136,18 @@ const MembersManagement: React.FC = () => {
       phone: '+1 234-567-8902',
       joinDate: '2026-01-05',
       status: 'inactive',
-      outstandingDues: 750,
+      opening_balance: 750,
+      total_paid: 500,
+      outstandingDues: 250,
       totalPaid: 500,
-      overpaidAmount:10
+      overpaidAmount: 0
     }
   ];
 
-  // Handle Add Member
+  // Handle Add Member - 🔥 Updated with opening_balance
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate
     if (!formData.name.trim()) {
       toast.error('Name is required');
       return;
@@ -157,7 +165,13 @@ const MembersManagement: React.FC = () => {
       const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
       const response = await axios.post(
         `${API_URL}/api/treasurer/members`,
-        formData,
+        {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          status: formData.status,
+          opening_balance: Number(formData.opening_balance) || 0  // 🔥 नया
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -169,7 +183,7 @@ const MembersManagement: React.FC = () => {
       if (response.data.success) {
         toast.success('Member added successfully! 🎉');
         setShowAddModal(false);
-        setFormData({ name: '', email: '', phone: '', status: 'active' });
+        setFormData({ name: '', email: '', phone: '', status: 'active', opening_balance: 0 });
         fetchMembers();
       } else {
         toast.error(response.data.message || 'Failed to add member');
@@ -198,7 +212,6 @@ const MembersManagement: React.FC = () => {
     
     if (!selectedMember) return;
 
-    // Validate
     if (!editFormData.name.trim()) {
       toast.error('Name is required');
       return;
@@ -271,67 +284,63 @@ const MembersManagement: React.FC = () => {
     }
   };
 
-
-// Handle Delete Member
-const handleDeleteMember = async (memberId: string, memberName: string) => {
-  const result = await Swal.fire({
-    title: "Delete Member?",
-    html: `Are you sure you want to delete <b>${memberName}</b>?<br><br>This action cannot be undone.`,
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: "#dc2626",
-    cancelButtonColor: "#6b7280",
-    confirmButtonText: "Yes, Delete",
-    cancelButtonText: "Cancel",
-    reverseButtons: true,
-    focusCancel: true,
-  });
-
-  if (!result.isConfirmed) return;
-
-  try {
-    const tenantSubdomain = localStorage.getItem("tenantSubdomain") || "";
-
-    const response = await axios.delete(
-      `${API_URL}/api/treasurer/members/${memberId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-Tenant-Subdomain": tenantSubdomain,
-        },
-      }
-    );
-
-    if (response.data.success) {
-      await Swal.fire({
-        icon: "success",
-        title: "Deleted!",
-        text: "Member deleted successfully.",
-        timer: 1800,
-        showConfirmButton: false,
-      });
-
-      fetchMembers();
-    }
-  } catch (error: any) {
-    console.error("Error deleting member:", error);
-
-    Swal.fire({
-      icon: "error",
-      title: "Delete Failed",
-      text:
-        error.response?.data?.message ||
-        "Failed to delete member.",
+  // Handle Delete Member
+  const handleDeleteMember = async (memberId: string, memberName: string) => {
+    const result = await Swal.fire({
+      title: "Delete Member?",
+      html: `Are you sure you want to delete <b>${memberName}</b>?<br><br>This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, Delete",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+      focusCancel: true,
     });
-  }
-};
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const tenantSubdomain = localStorage.getItem("tenantSubdomain") || "";
+
+      const response = await axios.delete(
+        `${API_URL}/api/treasurer/members/${memberId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-Tenant-Subdomain": tenantSubdomain,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        await Swal.fire({
+          icon: "success",
+          title: "Deleted!",
+          text: "Member deleted successfully.",
+          timer: 1800,
+          showConfirmButton: false,
+        });
+
+        fetchMembers();
+      }
+    } catch (error: any) {
+      console.error("Error deleting member:", error);
+
+      Swal.fire({
+        icon: "error",
+        title: "Delete Failed",
+        text: error.response?.data?.message || "Failed to delete member.",
+      });
+    }
+  };
 
   // Handle File Upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setCsvFile(file);
-      // Parse CSV preview
       const reader = new FileReader();
       reader.onload = (event) => {
         const text = event.target?.result as string;
@@ -351,15 +360,23 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
     }
   };
 
+  // 🔥 Updated Import CSV with opening_balance
   const handleImportCSV = async () => {
-    // Validate and import
     const errors: string[] = [];
+    
     csvPreview.forEach((row, index) => {
       if (!row[columnMapping.email] || !row[columnMapping.email].includes('@')) {
         errors.push(`Row ${index + 1}: invalid email`);
       }
       if (!row[columnMapping.name]) {
         errors.push(`Row ${index + 1}: missing name`);
+      }
+      // 🔥 Validate opening_balance if mapped
+      if (columnMapping.opening_balance && row[columnMapping.opening_balance]) {
+        const balance = parseFloat(row[columnMapping.opening_balance]);
+        if (isNaN(balance) || balance < 0) {
+          errors.push(`Row ${index + 1}: invalid opening balance (must be a positive number)`);
+        }
       }
     });
 
@@ -368,19 +385,24 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
       return;
     }
 
-    setImporting(true); // Set importing state to true
+    setImporting(true);
 
     try {
       const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
+      
+      // 🔥 Prepare members data with opening_balance
+      const membersData = csvPreview.map(row => ({
+        name: row[columnMapping.name],
+        email: row[columnMapping.email],
+        phone: row[columnMapping.phone] || '',
+        opening_balance: columnMapping.opening_balance 
+          ? parseFloat(row[columnMapping.opening_balance]) || 0 
+          : 0
+      }));
+
       const response = await axios.post(
         `${API_URL}/api/treasurer/members/import`,
-        {
-          members: csvPreview.map(row => ({
-            name: row[columnMapping.name],
-            email: row[columnMapping.email],
-            phone: row[columnMapping.phone] || ''
-          }))
-        },
+        { members: membersData },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -401,7 +423,7 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
       console.error('Error importing members:', error);
       toast.error('Failed to import members');
     } finally {
-      setImporting(false); // Reset importing state
+      setImporting(false);
     }
   };
 
@@ -413,9 +435,9 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -447,7 +469,7 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
           </button>
           <button
             onClick={() => {
-              setFormData({ name: '', email: '', phone: '', status: 'active' });
+              setFormData({ name: '', email: '', phone: '', status: 'active', opening_balance: 0 });
               setShowAddModal(true);
             }}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
@@ -515,9 +537,9 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding Dues</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opening Balance</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Paid</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Over Paid Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -549,13 +571,15 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white">
-                      {formatCurrency(member.outstandingDues)}
+                      {formatCurrency(member.opening_balance || 0)}
                     </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white">
-                      {formatCurrency(member.totalPaid)}
+                    <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white">
+                      {formatCurrency(member.total_paid || 0)}
                     </td>
-                                          <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-white">
-                      {formatCurrency(member.overpaidAmount)}
+                    <td className="px-4 py-3 text-sm font-medium">
+                      <span className={member.outstandingDues > 0 ? 'text-red-600' : 'text-green-600'}>
+                        {formatCurrency(member.outstandingDues)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -594,7 +618,7 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
         )}
       </div>
 
-      {/* Add Member Modal */}
+      {/* Add Member Modal - 🔥 Updated with opening_balance */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-7 w-full max-w-md animate-in fade-in zoom-in duration-200">
@@ -651,6 +675,23 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                   placeholder="Enter phone number"
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
                 />
+              </div>
+
+              {/* 🔥 New Field - Opening Balance */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Opening Balance (₹)
+                </label>
+                <input
+                  type="number"
+                  value={formData.opening_balance}
+                  onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })}
+                  placeholder="Enter opening balance (e.g., 5000)"
+                  min="0"
+                  step="1"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800"
+                />
+                <p className="text-xs text-gray-400 mt-1">Amount this member owes (positive number)</p>
               </div>
 
               <div>
@@ -786,7 +827,7 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
         </div>
       )}
 
-      {/* Import CSV Modal */}
+      {/* Import CSV Modal - 🔥 Updated with opening_balance */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-7 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
@@ -800,7 +841,7 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                 setCsvFile(null);
                 setCsvPreview([]);
                 setValidationErrors([]);
-                setImporting(false); // Reset importing state
+                setImporting(false);
               }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                 <X className="w-5 h-5" />
               </button>
@@ -817,7 +858,7 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                   onChange={handleFileUpload}
                   className="hidden"
                   id="csvFile"
-                  disabled={importing} // Disable file input while importing
+                  disabled={importing}
                 />
                 <label htmlFor="csvFile" className={`cursor-pointer ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <Upload className={`w-12 h-12 mx-auto mb-3 ${
@@ -830,16 +871,16 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                 </label>
               </div>
 
-              {/* Column Mapping */}
+              {/* Column Mapping - 🔥 Updated with opening_balance */}
               {csvPreview.length > 0 && (
                 <div>
                   <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Column Mapping</h4>
                   <p className="text-sm text-gray-500 mb-3">Map CSV columns to member fields</p>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {Object.keys(columnMapping).map((field) => (
                       <div key={field}>
                         <label className="block text-xs font-medium text-gray-500 mb-1 capitalize">
-                          {field} <span className="text-red-500">*</span>
+                          {field.replace('_', ' ')} {field !== 'phone' && <span className="text-red-500">*</span>}
                         </label>
                         <select
                           value={columnMapping[field as keyof typeof columnMapping]}
@@ -847,7 +888,7 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                             ...columnMapping,
                             [field]: e.target.value
                           })}
-                          disabled={importing} // Disable select while importing
+                          disabled={importing}
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="">Select column</option>
@@ -858,6 +899,9 @@ const handleDeleteMember = async (memberId: string, memberName: string) => {
                       </div>
                     ))}
                   </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    💡 Make sure your CSV has columns for: Name, Email, Phone (optional), Opening Balance (optional)
+                  </p>
                 </div>
               )}
 
