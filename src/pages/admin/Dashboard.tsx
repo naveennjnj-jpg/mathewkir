@@ -1,4 +1,4 @@
-// pages/admin/Dashboard.tsx (or wherever your file is)
+// pages/admin/Dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -15,21 +15,52 @@ import {
   XCircle,
   AlertCircle,
   RefreshCw,
-  Loader2
+  Loader2,
+  DollarSign,
+  CalendarDays,
+  UserPlus,
+  CreditCard
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// Types
-interface DashboardStats {
+// 🔥 Updated Types according to Super Admin API
+interface GlobalStats {
   totalTenants: number;
-  totalMembers: number;
-  totalFundsTracked: number;
   activeTenants: number;
-  totalTenantsChange?: string;
-  totalMembersChange?: string;
-  totalFundsChange?: string;
-  activeTenantsChange?: string;
+  pendingTenants: number;
+  suspendedTenants: number;
+  inactiveTenants: number;
+  totalMembers: number;
+  totalOpeningBalance: number;
+  totalPaid: number;
+  totalOutstanding: number;
+  membersWithDues: number;
+  fullyPaidMembers: number;
+  overpaidMembers: number;
+  totalEvents: number;
+  totalContributions: number;
+  pendingPayments: number;
+  totalPayouts: number;
+  totalPayoutAmount: number;
+  totalBeneficiaries: number;
+  collectionRate: number;
+}
+
+interface TenantStats {
+  totalMembers: number;
+  openingBalance: number;
+  totalPaid: number;
+  outstanding: number;
+  membersWithDues: number;
+  fullyPaidMembers: number;
+  overpaidMembers: number;
+  totalEvents: number;
+  totalContributions: number;
+  pendingPayments: number;
+  totalPayouts: number;
+  totalPayoutAmount: number;
+  totalBeneficiaries: number;
 }
 
 interface Tenant {
@@ -37,25 +68,43 @@ interface Tenant {
   name: string;
   subdomain: string;
   status: 'active' | 'pending' | 'suspended' | 'inactive';
-  createdDate: string;
-  treasurer: string;
-  treasurerEmail: string;
-  bankAccount: string;
-  members: number;
-  totalFunds: number;
-  maxMembers: number;
-  subscriptionTier: string;
+  created_at: string;
+  brand_color: string | null;
+  logo_url: string | null;
+  bank_account_ref: string | null;
+  stats: TenantStats;
+  recentActivities: Array<{
+    id: string;
+    action: string;
+    entity_type: string;
+    user: string;
+    created_at: string;
+    details: any;
+  }>;
+}
+
+interface DashboardData {
+  global: GlobalStats;
+  tenants: Tenant[];
+  topTenantsByOutstanding: Tenant[];
+  recentActivities: Array<{
+    id: string;
+    action: string;
+    entity_type: string;
+    tenant: string;
+    user: string;
+    created_at: string;
+    details: any;
+  }>;
 }
 
 const AdminDashboard: React.FC = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentTenants, setRecentTenants] = useState<Tenant[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const token = localStorage.getItem("token");
-  // Fix: Use the correct API URL (8000 instead of 5000)
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   // Fetch dashboard data
@@ -64,153 +113,31 @@ const AdminDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch stats and recent tenants in parallel
-      const [statsResponse, tenantsResponse] = await Promise.all([
-        axios.get(`${API_URL}/api/admin/dashboard`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }),
-        axios.get(`${API_URL}/api/admin/tenants?limit=5&page=1`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }),
-      ]);
+      const response = await axios.get(`${API_URL}/api/admin/dashboard`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      // Set stats
-      if (statsResponse.data.success) {
-        setStats(statsResponse.data.data);
-      } else {
-        setError(statsResponse.data.message || 'Failed to fetch stats');
-        // Set default stats to prevent undefined errors
-        setStats(getDefaultStats());
-      }
+      console.log('📊 Admin Dashboard Response:', response.data);
 
-      // Set recent tenants
-      if (tenantsResponse.data.success) {
-        setRecentTenants(tenantsResponse.data.data);
+      if (response.data.success) {
+        setDashboardData(response.data.data);
       } else {
-        setError(tenantsResponse.data.message || 'Failed to fetch tenants');
-        setRecentTenants(getDefaultTenants());
+        setError(response.data.message || 'Failed to fetch dashboard data');
       }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
       
-      // Check if it's a network error
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         setError('Cannot connect to server. Please make sure the backend is running.');
       } else {
         setError(error.response?.data?.message || 'Failed to fetch dashboard data');
       }
-      
-      // Set default data to prevent UI errors
-      setStats(getDefaultStats());
-      setRecentTenants(getDefaultTenants());
     } finally {
       setLoading(false);
     }
   };
-
-  // Default stats (fallback)
-  const getDefaultStats = (): DashboardStats => ({
-    totalTenants: 0,
-    totalMembers: 0,
-    totalFundsTracked: 0,
-    activeTenants: 0,
-    totalTenantsChange: '+0%',
-    totalMembersChange: '+0%',
-    totalFundsChange: '+0%',
-    activeTenantsChange: '+0',
-  });
-
-  // Default tenants (fallback)
-  const getDefaultTenants = (): Tenant[] => [];
-
-  // Mock data for fallback (optional - remove if you don't want mock data)
-  const getMockStats = (): DashboardStats => ({
-    totalTenants: 24,
-    totalMembers: 1847,
-    totalFundsTracked: 3200000,
-    activeTenants: 22,
-    totalTenantsChange: '+12%',
-    totalMembersChange: '+8.5%',
-    totalFundsChange: '+15.3%',
-    activeTenantsChange: '+2',
-  });
-
-  const getMockTenants = (): Tenant[] => [
-    {
-      id: '1',
-      name: 'TechCorp Solutions',
-      subdomain: 'techcorp',
-      status: 'active',
-      createdDate: '2026-01-15',
-      treasurer: 'John Doe',
-      treasurerEmail: 'john@techcorp.com',
-      bankAccount: '****7890',
-      members: 45,
-      totalFunds: 124500,
-      maxMembers: 100,
-      subscriptionTier: 'basic'
-    },
-    {
-      id: '2',
-      name: 'GreenLeaf Industries',
-      subdomain: 'greenleaf',
-      status: 'active',
-      createdDate: '2026-01-10',
-      treasurer: 'Sarah Smith',
-      treasurerEmail: 'sarah@greenleaf.com',
-      bankAccount: '****3456',
-      members: 32,
-      totalFunds: 89200,
-      maxMembers: 100,
-      subscriptionTier: 'basic'
-    },
-    {
-      id: '3',
-      name: 'InnovateWorks',
-      subdomain: 'innovate',
-      status: 'pending',
-      createdDate: '2026-01-05',
-      treasurer: 'Mike Johnson',
-      treasurerEmail: 'mike@innovate.com',
-      bankAccount: '****1234',
-      members: 0,
-      totalFunds: 0,
-      maxMembers: 100,
-      subscriptionTier: 'basic'
-    },
-    {
-      id: '4',
-      name: 'PrimeEdge Solutions',
-      subdomain: 'primeedge',
-      status: 'active',
-      createdDate: '2025-12-20',
-      treasurer: 'Emma Wilson',
-      treasurerEmail: 'emma@primeedge.com',
-      bankAccount: '****5678',
-      members: 28,
-      totalFunds: 67800,
-      maxMembers: 100,
-      subscriptionTier: 'basic'
-    },
-    {
-      id: '5',
-      name: 'Apex Global',
-      subdomain: 'apex',
-      status: 'suspended',
-      createdDate: '2025-12-15',
-      treasurer: 'David Brown',
-      treasurerEmail: 'david@apex.com',
-      bankAccount: '****9012',
-      members: 15,
-      totalFunds: 45300,
-      maxMembers: 100,
-      subscriptionTier: 'basic'
-    },
-  ];
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -227,13 +154,16 @@ const AdminDashboard: React.FC = () => {
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `$${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 10000000) {
+      return `₹${(amount / 10000000).toFixed(1)}Cr`;
+    }
+    if (amount >= 100000) {
+      return `₹${(amount / 100000).toFixed(1)}L`;
     }
     if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(1)}K`;
+      return `₹${(amount / 1000).toFixed(1)}K`;
     }
-    return `$${amount.toFixed(2)}`;
+    return `₹${amount.toFixed(0)}`;
   };
 
   // Format number with commas
@@ -241,48 +171,18 @@ const AdminDashboard: React.FC = () => {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   };
 
-  // Get stats configuration from API data - WITH SAFE CHECK
-  const getStatsConfig = () => {
-    // Safe check: if stats is null or undefined, use default values
-    const safeStats = stats || getDefaultStats();
-
-    return [
-      {
-        title: 'Total Tenants',
-        value: safeStats.totalTenants?.toString() || '0',
-        change: safeStats.totalTenantsChange || '+0%',
-        icon: Building2,
-        color: 'bg-blue-500',
-      },
-      {
-        title: 'Total Members',
-        value: formatNumber(safeStats.totalMembers || 0),
-        change: safeStats.totalMembersChange || '+0%',
-        icon: Users,
-        color: 'bg-green-500',
-      },
-      {
-        title: 'Total Funds Tracked',
-        value: formatCurrency(safeStats.totalFundsTracked || 0),
-        change: safeStats.totalFundsChange || '+0%',
-        icon: Wallet,
-        color: 'bg-purple-500',
-      },
-      {
-        title: 'Active Tenants',
-        value: safeStats.activeTenants?.toString() || '0',
-        change: safeStats.activeTenantsChange || '+0',
-        icon: TrendingUp,
-        color: 'bg-orange-500',
-      },
-    ];
+  // Format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
-
-  const statsConfig = getStatsConfig();
 
   // Get status badge
   const getStatusBadge = (status: string) => {
-    const configs = {
+    const configs: Record<string, any> = {
       active: {
         icon: CheckCircle,
         className: 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-500',
@@ -305,7 +205,7 @@ const AdminDashboard: React.FC = () => {
       },
     };
 
-    const config = configs[status as keyof typeof configs] || configs.pending;
+    const config = configs[status.toLowerCase()] || configs.pending;
     const Icon = config.icon;
 
     return (
@@ -314,6 +214,16 @@ const AdminDashboard: React.FC = () => {
         {config.label}
       </span>
     );
+  };
+
+  // Get activity icon
+  const getActivityIcon = (action: string) => {
+    const actionLower = action?.toLowerCase() || '';
+    if (actionLower.includes('member')) return <UserPlus className="w-4 h-4 text-purple-500" />;
+    if (actionLower.includes('payment') || actionLower.includes('contribution')) return <CreditCard className="w-4 h-4 text-green-500" />;
+    if (actionLower.includes('event')) return <CalendarDays className="w-4 h-4 text-blue-500" />;
+    if (actionLower.includes('payout')) return <DollarSign className="w-4 h-4 text-orange-500" />;
+    return <Clock className="w-4 h-4 text-gray-500" />;
   };
 
   // Fetch data on mount
@@ -332,6 +242,11 @@ const AdminDashboard: React.FC = () => {
       </div>
     );
   }
+
+  const global = dashboardData?.global;
+  const tenants = dashboardData?.tenants || [];
+  const topTenants = dashboardData?.topTenantsByOutstanding || [];
+  const recentActivities = dashboardData?.recentActivities || [];
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -383,42 +298,102 @@ const AdminDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* Stats Cards */}
+            {/* 🔥 Stats Cards - From Global Stats */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-              {statsConfig.map((stat, index) => (
-                <div
-                  key={index}
-                  className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className={`${stat.color} rounded-xl p-3`}>
-                      <stat.icon className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                      {stat.change}
-                    </span>
+              {/* Total Tenants */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="bg-blue-500 rounded-xl p-3">
+                    <Building2 className="w-5 h-5 text-white" />
                   </div>
-                  <div className="mt-4">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {stat.title}
-                    </span>
-                    <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
-                      {stat.value}
-                    </h4>
-                  </div>
+                  <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                    {global?.activeTenants || 0} Active
+                  </span>
                 </div>
-              ))}
+                <div className="mt-4">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Total Tenants</span>
+                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
+                    {global?.totalTenants || 0}
+                  </h4>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {global?.pendingTenants || 0} Pending · {global?.suspendedTenants || 0} Suspended
+                  </p>
+                </div>
+              </div>
+
+              {/* Total Members */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="bg-green-500 rounded-xl p-3">
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                    {global?.membersWithDues || 0} Have Dues
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Total Members</span>
+                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
+                    {formatNumber(global?.totalMembers || 0)}
+                  </h4>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {global?.fullyPaidMembers || 0} Fully Paid
+                  </p>
+                </div>
+              </div>
+
+              {/* Total Outstanding */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="bg-red-500 rounded-xl p-3">
+                    <Wallet className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                    {global?.collectionRate || 0}% Collected
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Total Outstanding</span>
+                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
+                    {formatCurrency(global?.totalOutstanding || 0)}
+                  </h4>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Paid: {formatCurrency(global?.totalPaid || 0)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Total Events & Payouts */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="bg-purple-500 rounded-xl p-3">
+                    <CalendarDays className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                    {global?.totalPayouts || 0} Payouts
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Total Events</span>
+                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
+                    {global?.totalEvents || 0}
+                  </h4>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Pending: {global?.pendingPayments || 0}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Recently Added Tenants */}
+            {/* 🔥 Top Tenants by Outstanding */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-                    Recently Added Tenants
+                    Top Tenants by Outstanding
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Latest tenants registered on the platform
+                    Tenants with highest pending dues
                   </p>
                 </div>
                 <Link
@@ -429,8 +404,8 @@ const AdminDashboard: React.FC = () => {
                 </Link>
               </div>
 
-              {recentTenants.length === 0 ? (
-                <div className="text-center py-12">
+              {topTenants.length === 0 ? (
+                <div className="text-center py-8">
                   <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-500 dark:text-gray-400">No tenants found</p>
                 </div>
@@ -439,93 +414,33 @@ const AdminDashboard: React.FC = () => {
                   <table className="min-w-full">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-gray-800">
-                        <th className="py-3 text-left">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Tenant Name
-                          </span>
-                        </th>
-                        <th className="py-3 text-left">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Subdomain
-                          </span>
-                        </th>
-                        <th className="py-3 text-left">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Status
-                          </span>
-                        </th>
-                        <th className="py-3 text-left">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Created Date
-                          </span>
-                        </th>
-                        <th className="py-3 text-left">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Treasurer
-                          </span>
-                        </th>
-                        <th className="py-3 text-right">
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Actions
-                          </span>
-                        </th>
+                        <th className="py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
+                        <th className="py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Members</th>
+                        <th className="py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opening Balance</th>
+                        <th className="py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
+                        <th className="py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {recentTenants.map((tenant) => (
+                      {topTenants.map((tenant) => (
                         <tr key={tenant.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                           <td className="py-3">
-                            <span className="font-medium text-gray-800 dark:text-white/90">
-                              {tenant.name}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {tenant.subdomain}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            {getStatusBadge(tenant.status)}
-                          </td>
-                          <td className="py-3">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {new Date(tenant.createdDate).toLocaleDateString()}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {tenant.treasurerEmail || 'Not Assigned'}
-                            </span>
-                          </td>
-                          <td className="py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Link
-                                to={`/admin/tenants/${tenant.id}`}
-                                className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
-                                title="View Details"
-                              >
-                                <Eye className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                              </Link>
-                              <Link
-                                to={`/admin/tenants/${tenant.id}/edit`}
-                                className="p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
-                                title="Edit Tenant"
-                              >
-                                <Edit2 className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                              </Link>
-                              <button
-                                className="p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                title="Delete Tenant"
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to delete "${tenant.name}"? This action cannot be undone.`)) {
-                                    toast.success('Tenant deleted successfully');
-                                    fetchDashboardData();
-                                  }
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
-                              </button>
+                            <div>
+                              <span className="font-medium text-gray-800 dark:text-white/90">{tenant.name}</span>
+                              <p className="text-xs text-gray-400">{tenant.subdomain}</p>
                             </div>
+                          </td>
+                          <td className="py-3">{getStatusBadge(tenant.status)}</td>
+                          <td className="py-3 text-sm text-gray-600 dark:text-gray-400">{tenant.stats.totalMembers}</td>
+                          <td className="py-3 text-sm font-medium text-gray-800 dark:text-white/90">
+                            {formatCurrency(tenant.stats.openingBalance)}
+                          </td>
+                          <td className="py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {formatCurrency(tenant.stats.totalPaid)}
+                          </td>
+                          <td className="py-3 text-sm font-medium text-red-600">
+                            {formatCurrency(tenant.stats.outstanding)}
                           </td>
                         </tr>
                       ))}
@@ -535,64 +450,67 @@ const AdminDashboard: React.FC = () => {
               )}
             </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Link
-                to="/admin/reconciliation"
-                className="rounded-2xl border border-gray-200 bg-white p-6 hover:border-brand-500 transition-colors dark:border-gray-800 dark:bg-white/[0.03]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-blue-50 p-3 dark:bg-blue-500/15">
-                    <Wallet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-800 dark:text-white/90">
-                      Financial Reconciliation
-                    </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Review tenant financial data
-                    </p>
-                  </div>
+            {/* 🔥 Recent Global Activities */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+                    Recent Global Activities
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Latest activities across all tenants
+                  </p>
                 </div>
-              </Link>
+                <Link
+                  to="/admin/audit-logs"
+                  className="text-sm text-brand-500 hover:text-brand-600 font-medium"
+                >
+                  View All →
+                </Link>
+              </div>
 
-              <Link
-                to="/admin/audit-logs"
-                className="rounded-2xl border border-gray-200 bg-white p-6 hover:border-brand-500 transition-colors dark:border-gray-800 dark:bg-white/[0.03]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-purple-50 p-3 dark:bg-purple-500/15">
-                    <span className="text-purple-600 dark:text-purple-400 text-xl">📋</span>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-800 dark:text-white/90">
-                      Global Audit Logs
-                    </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Monitor all platform activities
-                    </p>
-                  </div>
+              {recentActivities.length === 0 ? (
+                <div className="text-center py-8">
+                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400">No recent activities</p>
                 </div>
-              </Link>
-
-              <Link
-                to="/admin/users"
-                className="rounded-2xl border border-gray-200 bg-white p-6 hover:border-brand-500 transition-colors dark:border-gray-800 dark:bg-white/[0.03]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-green-50 p-3 dark:bg-green-500/15">
-                    <Users className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-800 dark:text-white/90">
-                      User Management
-                    </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Manage all users across tenants
-                    </p>
-                  </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentActivities.slice(0, 10).map((activity) => (
+                    <div
+                      key={activity.id}
+                      className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800 last:border-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                          {getActivityIcon(activity.action)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                            {activity.action?.replace(/_/g, ' ') || 'Activity'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatDate(activity.created_at)}
+                            </span>
+                            <span className="text-xs text-gray-400">•</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {activity.tenant}
+                            </span>
+                            <span className="text-xs text-gray-400">by</span>
+                            <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                              {activity.user}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {activity.entity_type}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </Link>
+              )}
             </div>
           </div>
         </main>

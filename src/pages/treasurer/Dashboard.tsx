@@ -21,35 +21,65 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// Types
-interface TreasurerStats {
-  totalDuesCollected: number;
-  totalDuesCollectedAllTime: number;
-  pendingAmount: number;
-  activeEvents: number;
-  overdueMembers: number;
-  duesCollectedChange?: string;
-  pendingAmountChange?: string;
-  activeEventsChange?: string;
-  overdueMembersChange?: string;
+// 🔥 Updated Types according to API response
+interface DashboardStats {
+  tenant: {
+    id: string;
+    name: string;
+    subdomain: string;
+  };
+  financial: {
+    totalMembers: number;
+    totalOpeningBalance: number;
+    totalPaid: number;
+    totalOutstanding: number;
+    membersWithDues: number;
+    fullyPaidMembers: number;
+    overpaidMembers: number;
+    collectionRate: number;
+  };
+  myBalance: {
+    openingBalance: number;
+    totalPaid: number;
+    outstanding: number;
+    hasOverpaid: boolean;
+    overpaidAmount: number;
+    status: string;
+  };
+  events: {
+    totalEvents: number;
+    totalContributions: number;
+    pendingPayments: number;
+    activeEvents: number;
+  };
+  memberships: Array<{
+    tenantId: string;
+    tenantName: string;
+    role: string;
+    joinedAt: string;
+    openingBalance: number;
+    totalPaid: number;
+    outstanding: number;
+  }>;
+  recentActivities: RecentActivity[];
 }
 
 interface RecentActivity {
   id: string;
-  type: 'payment' | 'event' | 'member';
+  type: 'payment' | 'event' | 'member' | 'payout' | 'balance' | 'other';
   description: string;
   amount?: number;
   date: string;
   status?: 'success' | 'pending' | 'failed';
+  user?: string;
+  details?: any;
 }
 
 const TreasurerDashboard: React.FC = () => {
-  const [stats, setStats] = useState<TreasurerStats | null>(null);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tenantInfo, setTenantInfo] = useState<{ name: string; subdomain: string } | null>(null);
 
   const token = localStorage.getItem("token");
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -60,7 +90,6 @@ const TreasurerDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Get tenant info from localStorage or context
       const tenantSubdomain = localStorage.getItem('tenantSubdomain') || '';
 
       const response = await axios.get(`${API_URL}/api/treasurer/dashboard`, {
@@ -70,13 +99,12 @@ const TreasurerDashboard: React.FC = () => {
         },
       });
 
+      console.log('📊 Dashboard Response:', response.data);
+
       if (response.data.success) {
-        setStats(response.data.data.stats);
-        setRecentActivities(response.data.data.recentActivities || []);
-        setTenantInfo(response.data.data.tenant);
+        setDashboardData(response.data.data);
       } else {
         setError(response.data.message || 'Failed to fetch dashboard data');
-        setStats(getDefaultStats());
       }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
@@ -86,58 +114,10 @@ const TreasurerDashboard: React.FC = () => {
       } else {
         setError(error.response?.data?.message || 'Failed to fetch dashboard data');
       }
-      
-      setStats(getDefaultStats());
-      setRecentActivities(getMockActivities());
     } finally {
       setLoading(false);
     }
   };
-
-  // Default stats
-  const getDefaultStats = (): TreasurerStats => ({
-    totalDuesCollected: 0,
-    totalDuesCollectedAllTime: 0,
-    pendingAmount: 0,
-    activeEvents: 0,
-    overdueMembers: 0,
-    duesCollectedChange: '+0%',
-    pendingAmountChange: '+0%',
-    activeEventsChange: '+0',
-    overdueMembersChange: '+0',
-  });
-
-  // Mock activities
-  const getMockActivities = (): RecentActivity[] => [
-    {
-      id: '1',
-      type: 'payment',
-      description: 'Payment received from John Doe',
-      amount: 500,
-      date: new Date().toISOString(),
-      status: 'success',
-    },
-    {
-      id: '2',
-      type: 'event',
-      description: 'New event created: Annual Fundraiser',
-      date: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: '3',
-      type: 'member',
-      description: 'Sarah Smith joined as member',
-      date: new Date(Date.now() - 7200000).toISOString(),
-    },
-    {
-      id: '4',
-      type: 'payment',
-      description: 'Pending payment from Mike Johnson',
-      amount: 250,
-      date: new Date(Date.now() - 86400000).toISOString(),
-      status: 'pending',
-    },
-  ];
 
   // Handle refresh
   const handleRefresh = async () => {
@@ -154,9 +134,9 @@ const TreasurerDashboard: React.FC = () => {
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -182,6 +162,10 @@ const TreasurerDashboard: React.FC = () => {
         return <Calendar className="w-4 h-4 text-blue-500" />;
       case 'member':
         return <Users className="w-4 h-4 text-purple-500" />;
+      case 'payout':
+        return <Wallet className="w-4 h-4 text-orange-500" />;
+      case 'balance':
+        return <TrendingUp className="w-4 h-4 text-indigo-500" />;
       default:
         return <Clock className="w-4 h-4 text-gray-500" />;
     }
@@ -191,7 +175,7 @@ const TreasurerDashboard: React.FC = () => {
   const getStatusBadge = (status?: string) => {
     if (!status) return null;
     
-    const configs = {
+    const configs: Record<string, any> = {
       success: {
         icon: CheckCircle,
         className: 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-500',
@@ -237,7 +221,12 @@ const TreasurerDashboard: React.FC = () => {
     );
   }
 
-  const safeStats = stats || getDefaultStats();
+  // 🔥 Get stats from dashboard data
+  const stats = dashboardData?.financial;
+  const myBalance = dashboardData?.myBalance;
+  const events = dashboardData?.events;
+  const tenant = dashboardData?.tenant;
+  const recentActivities = dashboardData?.recentActivities || [];
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -251,7 +240,7 @@ const TreasurerDashboard: React.FC = () => {
                   Treasurer Dashboard
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {tenantInfo?.name || 'Your Tenant'} • Manage dues, events, and members
+                  {tenant?.name || 'Your Tenant'} • Manage dues, events, and members
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -282,96 +271,96 @@ const TreasurerDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* Stats Cards */}
+            {/* 🔥 Stats Cards - Updated according to API */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-              {/* Total Dues Collected (This Month) */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div className="bg-green-500 rounded-xl p-3">
-                    <DollarSign className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                    {safeStats.duesCollectedChange || '+0%'}
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Total Dues Collected (This Month)
-                  </span>
-                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
-                    {formatCurrency(safeStats.totalDuesCollected || 0)}
-                  </h4>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    All time: {formatCurrency(safeStats.totalDuesCollectedAllTime || 0)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Total Pending Amount */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div className="bg-yellow-500 rounded-xl p-3">
-                    <Clock className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
-                    {safeStats.pendingAmountChange || '+0%'}
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Total Pending Amount
-                  </span>
-                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
-                    {formatCurrency(safeStats.pendingAmount || 0)}
-                  </h4>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    Needs attention
-                  </p>
-                </div>
-              </div>
-
-              {/* Active Events */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div className="bg-blue-500 rounded-xl p-3">
-                    <CalendarDays className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                    {safeStats.activeEventsChange || '+0'}
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Active Events
-                  </span>
-                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
-                    {safeStats.activeEvents || 0}
-                  </h4>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    Currently running
-                  </p>
-                </div>
-              </div>
-
-              {/* Overdue Members */}
+              {/* Total Outstanding */}
               <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div className="bg-red-500 rounded-xl p-3">
-                    <AlertCircle className="w-5 h-5 text-white" />
+                    <DollarSign className="w-5 h-5 text-white" />
                   </div>
                   <span className="text-sm font-medium text-red-600 dark:text-red-400">
-                    {safeStats.overdueMembersChange || '+0'}
+                    {stats?.collectionRate || 0}% Collected
                   </span>
                 </div>
                 <div className="mt-4">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Overdue Members
+                    Total Outstanding
                   </span>
                   <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
-                    {safeStats.overdueMembers || 0}
+                    {formatCurrency(stats?.totalOutstanding || 0)}
                   </h4>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    Need to follow up
+                    {stats?.membersWithDues || 0} members have dues
+                  </p>
+                </div>
+              </div>
+
+              {/* Total Opening Balance */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="bg-blue-500 rounded-xl p-3">
+                    <Wallet className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                    {stats?.totalMembers || 0} Members
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    Total Opening Balance
+                  </span>
+                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
+                    {formatCurrency(stats?.totalOpeningBalance || 0)}
+                  </h4>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Total Paid: {formatCurrency(stats?.totalPaid || 0)}
+                  </p>
+                </div>
+              </div>
+
+              {/* My Balance */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="bg-green-500 rounded-xl p-3">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <span className={`text-sm font-medium ${myBalance?.outstanding === 0 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                    {myBalance?.status === 'paid' ? '✅ Paid' : '⏳ Pending'}
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    My Outstanding Balance
+                  </span>
+                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
+                    {formatCurrency(myBalance?.outstanding || 0)}
+                  </h4>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Opening: {formatCurrency(myBalance?.openingBalance || 0)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Events */}
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="bg-purple-500 rounded-xl p-3">
+                    <CalendarDays className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                    {events?.activeEvents || 0} Active
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    Total Events
+                  </span>
+                  <h4 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">
+                    {events?.totalEvents || 0}
+                  </h4>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Pending: {events?.pendingPayments || 0}
                   </p>
                 </div>
               </div>
@@ -418,7 +407,7 @@ const TreasurerDashboard: React.FC = () => {
               </Link>
 
               <Link
-                to="/treasurer/dues"
+                to="/treasurer/payouts"
                 className="rounded-2xl border border-gray-200 bg-white p-6 hover:border-brand-500 transition-colors dark:border-gray-800 dark:bg-white/[0.03]"
               >
                 <div className="flex items-center gap-3">
@@ -480,6 +469,11 @@ const TreasurerDashboard: React.FC = () => {
                               </span>
                             )}
                             {activity.status && getStatusBadge(activity.status)}
+                            {activity.user && (
+                              <span className="text-xs text-gray-400">
+                                by {activity.user}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
